@@ -1,4 +1,4 @@
-/* app.jsx — wires the console together. */
+/* app.jsx — wires the console to the FastAPI backend. */
 const { useState, useEffect, useRef, useCallback } = React;
 
 const MODELS = [
@@ -18,7 +18,6 @@ const EXAMPLES = [
   { text: "Build me a back workout using a rowing machine", tag: "RESILIENCE", color: "var(--r-recover)" },
 ];
 
-/* accent presets — each carries its derived soft/ring/press shades */
 const ACCENTS = {
   "#5b5bd6": { soft: "#ecedfb", ring: "rgba(91,91,214,.28)", press: "#4a4ab8" },
   "#0d9488": { soft: "#dcf3f0", ring: "rgba(13,148,136,.26)", press: "#0b7a70" },
@@ -37,28 +36,16 @@ const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
 let TURN_ID = 0;
 function nid() { return "t" + (++TURN_ID); }
 
-function seedTranscript() {
-  const mk = (role, payload) => Object.assign({ id: nid(), role }, payload);
-  const coach = window.FitEngine.route("What muscles does a deadlift work?", 0.6);
-  const gen = window.FitEngine.route("Build me a 30 min upper body session with dumbbells", 0.6);
-  const log = window.FitEngine.route("I just did 3x10 bench press at 185 lbs", 0.6);
-  return [
-    mk("user", { text: "What muscles does a deadlift work?" }),
-    mk("assistant", { turn: coach }),
-    mk("user", { text: "Build me a 30 min upper body session with dumbbells" }),
-    mk("assistant", { turn: gen }),
-    mk("user", { text: "I just did 3x10 bench press at 185 lbs" }),
-    mk("assistant", { turn: log }),
-  ];
-}
-
 function deriveSessionLog(messages) {
   const out = [];
   messages.forEach((m) => {
     if (m.role === "assistant" && m.turn && m.turn.content && m.turn.content.type === "log") {
       m.turn.content.entries.forEach((e) => {
         const ex = window.FitEngine.byId[e.matched_id];
-        out.push({ name: ex ? ex.name : e.matched_id, sr: e.sets + "×" + e.reps, w: e.weight + e.unit });
+        const name = ex ? ex.name : (e.matched_name || e.raw || e.matched_id || "—");
+        const sr = (e.sets != null && e.reps != null) ? `${e.sets}×${e.reps}` : "";
+        const w = e.weight != null ? `${e.weight}${e.unit || ""}` : "";
+        out.push({ name, sr, w });
       });
     }
   });
@@ -73,16 +60,15 @@ function App() {
   const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
   const [model, setModel] = useState(MODELS[0]);
   const [threshold, setThreshold] = useState(0.6);
-  const [messages, setMessages] = useState(seedTranscript);
+  const [messages, setMessages] = useState([]);
   const [thread, setThread] = useState(newThreadId);
   const [draft, setDraft] = useState("");
-  const [thinking, setThinking] = useState(null); // {route} while "typing"
+  const [thinking, setThinking] = useState(false);
   const scrollRef = useRef(null);
   const taRef = useRef(null);
   const flashIdx = useRef(-1);
   const firstScroll = useRef(true);
 
-  /* apply tweaks to <html> */
   useEffect(() => {
     const html = document.documentElement;
     html.setAttribute("data-theme", t.theme);
@@ -95,7 +81,6 @@ function App() {
     html.style.setProperty("--accent-press", a.press);
   }, [t.theme, t.density, t.routeColors, t.accent]);
 
-  /* autoscroll on new content */
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
@@ -112,7 +97,7 @@ function App() {
 
   const sessionLog = deriveSessionLog(messages);
 
-  const send = useCallback((rawText) => {
+  const send = useCallback(async (rawText) => {
     const text = (rawText != null ? rawText : draft).trim();
     if (!text || thinking) return;
     setDraft("");
@@ -120,22 +105,36 @@ function App() {
 
     const userMsg = { id: nid(), role: "user", text };
     setMessages((prev) => [...prev, userMsg]);
+    setThinking(true);
 
-    // peek the likely route so the typing indicator is colored correctly
-    const preview = window.FitEngine.route(text, threshold);
-    setThinking({ route: preview.route });
-
-    const delay = 560 + Math.random() * 480;
-    setTimeout(() => {
-      const turn = window.FitEngine.route(text, threshold);
-      setThinking(null);
-      if (turn.content.type === "log") flashIdx.current = sessionLog.length;
+    try {
+      const turn = await window.FitEngine.route(text, threshold, thread);
+      if (turn.thread_id && turn.thread_id !== thread) {
+        setThread(turn.thread_id);
+      }
+      if (turn.content && turn.content.type === "log") {
+        flashIdx.current = sessionLog.length;
+      }
       setMessages((prev) => [...prev, { id: nid(), role: "assistant", turn }]);
-    }, delay);
-  }, [draft, thinking, threshold, sessionLog.length]);
+    } catch (e) {
+      setMessages((prev) => [...prev, {
+        id: nid(),
+        role: "assistant",
+        turn: {
+          route: "CLARIFY",
+          confidence: 0,
+          rationale: "request failed",
+          threshold,
+          trace: [],
+          content: { type: "clarify", question: "Request failed: " + (e.message || e), options: [] },
+        },
+      }]);
+    } finally {
+      setThinking(false);
+    }
+  }, [draft, thinking, threshold, thread, sessionLog.length]);
 
   const onPickClarify = useCallback((option) => {
-    // map a clarify-button choice to a concrete follow-up prompt
     const map = {
       "Log what I did": "I did 3x10 bench press at 185 lbs",
       "Build an adjusted version": "Build me a 30 min upper body session with dumbbells",
@@ -153,7 +152,7 @@ function App() {
   const resetThread = () => {
     setMessages([]);
     setThread(newThreadId());
-    setThinking(null);
+    setThinking(false);
   };
 
   const onKeyDown = (e) => {
@@ -167,7 +166,6 @@ function App() {
 
   return (
     <div className="app">
-      {/* ============ SIDEBAR ============ */}
       <aside className="sidebar">
         <div className="brand">
           <div className="brand-mark">{Icons.dumbbell}</div>
@@ -231,7 +229,6 @@ function App() {
         </div>
       </aside>
 
-      {/* ============ MAIN ============ */}
       <main className="main">
         <div className="topbar">
           <div className="topbar-title">
@@ -278,10 +275,10 @@ function App() {
               )
             ))}
             {thinking && (
-              <div className="turn turn-assistant" style={routeVars(thinking.route)}>
+              <div className="turn turn-assistant">
                 <div className="typing">
                   <span className="dots"><i /><i /><i /></span>
-                  <span className="typing-label">routing → {ROUTE_META[thinking.route].agent.toLowerCase()}…</span>
+                  <span className="typing-label">routing…</span>
                 </div>
               </div>
             )}
@@ -292,13 +289,12 @@ function App() {
           <div className="composer">
             <textarea ref={taRef} rows="1" value={draft} placeholder="Ask, generate, or log a set…  (Enter to send)"
               onChange={onInput} onKeyDown={onKeyDown} />
-            <button className="send-btn" disabled={!draft.trim() || !!thinking} onClick={() => send()}>{Icons.send}</button>
+            <button className="send-btn" disabled={!draft.trim() || thinking} onClick={() => send()}>{Icons.send}</button>
           </div>
-          <div className="composer-hint">{model} · threshold {threshold.toFixed(2)} · mock — responses are scripted, no LLM call</div>
+          <div className="composer-hint">{model} · threshold {threshold.toFixed(2)}</div>
         </div>
       </main>
 
-      {/* ============ TWEAKS ============ */}
       <TweaksPanel>
         <TweakSection label="Appearance" />
         <TweakRadio label="Theme" value={t.theme} options={["light", "dark"]} onChange={(v) => setTweak("theme", v)} />
@@ -312,4 +308,6 @@ function App() {
   );
 }
 
-ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+window.FitEngine.ready
+  .catch((err) => console.error("dataset load failed:", err))
+  .finally(() => ReactDOM.createRoot(document.getElementById("root")).render(<App />));

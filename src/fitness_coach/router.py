@@ -8,9 +8,10 @@ committing to a possibly-wrong route.
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Literal, Optional
 
 from langchain_core.messages import SystemMessage
+from langchain_core.runnables import RunnableConfig
 from pydantic import BaseModel, Field
 
 from .config import get_settings
@@ -78,13 +79,23 @@ def router_node(state: HubState) -> dict:
     }
 
 
-def route_gate(state: HubState) -> str:
+def route_gate(state: HubState, config: Optional[RunnableConfig] = None) -> str:
     """Conditional-edge function: pick the next node based on confidence.
 
     Below the configured threshold we divert to the clarify node instead of
     committing to a route. This is the explicit "don't silently misroute" policy.
+    A per-request override can be passed in ``config.configurable.confidence_threshold``
+    (the UI's sidebar slider sets this); otherwise we fall back to settings.
     """
-    threshold = get_settings().confidence_threshold
+    threshold = _resolve_threshold(config)
     if state.get("confidence", 0.0) < threshold:
         return "clarify"
     return state["route"]
+
+
+def _resolve_threshold(config: Optional[RunnableConfig]) -> float:
+    if config:
+        override = config.get("configurable", {}).get("confidence_threshold")
+        if override is not None:
+            return float(override)
+    return get_settings().confidence_threshold
