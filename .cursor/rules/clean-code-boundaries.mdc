@@ -1,0 +1,30 @@
+---
+description: Clean Code boundaries — encapsulate third-party code, learning tests, define interfaces you wish you had (Ch.8)
+alwaysApply: true
+---
+
+# Clean Code: Boundaries
+
+Change happens at boundaries. Very few places in the codebase should refer directly to third-party code.
+
+- **Don't pass boundary interfaces (e.g., `Map`) around your system.** Encapsulate them; expose only the narrow API your app needs. Keep casting/generics as hidden implementation details.
+
+```java
+// GOOD — encapsulate the boundary
+public class Sensors {
+  private Map sensors = new HashMap();
+  public Sensor getById(String id) { return (Sensor) sensors.get(id); }
+}
+```
+
+- **Write learning tests** to explore a new library in isolation — they cost nothing (you must learn it anyway), document expected usage, and detect breaking changes on upgrades.
+- **For code that doesn't exist yet, define the interface you wish you had.** Keep moving; bridge to the real API later with an **Adapter** (the single place to change). This also gives a clean **seam** for fakes in tests.
+- **Depend on what you control, not what you don't.** Wrap or adapt at every boundary so internal code speaks one consistent vocabulary.
+
+```java
+// Define your own interface before the vendor API exists
+public interface Transmitter {
+  void transmit(Frequency frequency, DataStream stream);
+}
+// Later: TransmitterAdapter implements Transmitter over the real API
+```

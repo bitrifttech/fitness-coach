@@ -1,0 +1,34 @@
+---
+description: Clean Code objects vs data structures — data abstraction, Law of Demeter, DTOs (Ch.6)
+alwaysApply: true
+---
+
+# Clean Code: Objects and Data Structures
+
+## Data abstraction
+- **Hide implementation behind abstractions, not getters/setters.** Keep fields private; expose an interface describing *what* the caller needs, not *how* it's stored. Blindly adding `get/set` for every field is not encapsulation.
+
+```java
+// BAD — leaks concrete storage
+public interface Vehicle {
+  double getFuelTankCapacityInGallons();
+  double getGallonsOfGasoline();
+}
+// GOOD — abstract
+public interface Vehicle { double getPercentFuelRemaining(); }
+```
+
+## Object/data anti-symmetry — choose deliberately
+- **Objects** hide data, expose behavior. **Data structures** expose data, have no behavior. They are opposites.
+- **OO/objects** make it easy to add **new types** (hard to add new functions). **Procedural + data structures** make it easy to add **new functions** (hard to add new types).
+- Reject the dogma that everything must be an object — pick the model that fits the expected axis of change.
+
+## Law of Demeter
+- A method should call methods only on: its own class, objects it creates, its arguments, and its instance variables — **not on objects returned by those calls**.
+- **Avoid train wrecks:** `ctxt.getOptions().getScratchDir().getAbsolutePath()`. (Demeter doesn't apply to pure data structures.)
+- **Hide structure — tell, don't ask:** `ctxt.createScratchFileStream(classFileName)` instead of navigating internals to build a path.
+- **Avoid hybrids** (half object, half data structure) — worst of both worlds.
+
+## DTOs & Active Record
+- **DTOs** = public fields (or beans), no behavior — for DB rows, socket messages, boundary translation.
+- **Active Records** are DTOs with `save`/`find`. **Keep business rules out of them** — put rules in a separate object that uses the record.

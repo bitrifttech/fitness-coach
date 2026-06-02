@@ -1,0 +1,35 @@
+---
+description: Clean Architecture — implementation: organization vs encapsulation, packaging strategies, using access modifiers to enforce architecture, plus a review checklist. Apply when structuring packages/modules and reviewing architectural compliance.
+alwaysApply: false
+---
+
+# Clean Architecture: Implementation (Organization vs. Encapsulation)
+
+Your design intentions are destroyed if the implementation details are wrong. Compare ways to organize code:
+
+- **Package by layer** (web / service / persistence): quick to start, but **doesn't scream the domain** and enables relaxed-layer cheating (e.g., a controller reaching straight into a repository).
+- **Package by feature** (vertical slice per domain concept): screams the domain, easier to find related code; still suboptimal.
+- **Ports & adapters / hexagonal:** an "inside" (domain) and "outside" (infrastructure); the outside depends on the inside, never the reverse. Name inner things in domain terms (`Orders`, not `OrdersRepository`).
+- **Package by component:** bundle the business logic + persistence for a coarse-grained component behind a clean interface; UI stays separate. A stepping stone to micro-services.
+
+**The critical implementation rules:**
+- **Use access modifiers; don't make everything `public`.** If all types are public, packages become mere *organization* (folders), not *encapsulation*—and all four styles collapse into the same thing. Overusing `public` lets anyone instantiate concrete implementations directly, violating the intended architecture.
+- **Make implementation classes package-private** (Java) / `internal` (.NET); expose only the necessary entry-point interface. **Lean on the compiler to enforce architecture** rather than relying on discipline, code reviews, or post-compile static analysis (slower feedback, fallible).
+- Other decoupling tools: module systems (distinguish *public* vs *published* types), or split code into separate source trees / build modules per component. Beware the **"Périphérique anti-pattern"**: a single shared infrastructure tree lets one infra area call another directly, bypassing the domain.
+- Be pragmatic: weigh team size, skill, complexity, and budget; leave options open where applicable; watch for coupling in other areas such as data models.
+
+## Quick Checklist
+
+- [ ] Do source-code dependencies point inward, toward higher-level policy? (Dependency Rule)
+- [ ] Are business rules (Entities, Use Cases) free of UI/DB/framework knowledge and unit-testable without them?
+- [ ] Is each module/component responsible to a single actor? (SRP/CCP)
+- [ ] Can behavior be extended by adding code, not modifying it? (OCP)
+- [ ] Are abstractions substitutable, with no hard-coded special cases? (LSP)
+- [ ] Do clients depend only on what they use? (ISP/CRP)
+- [ ] Do dependencies target stable abstractions, not volatile concretions? (DIP/SDP/SAP)
+- [ ] Is the component dependency graph acyclic? (ADP)
+- [ ] Are DB, web, UI, and frameworks treated as deferrable plugins behind boundaries?
+- [ ] Do only simple data structures cross boundaries (never Entities or DB rows)?
+- [ ] Is `Main` the only place that wires up concretions / DI?
+- [ ] Are access modifiers used so the compiler enforces the architecture?
+- [ ] Does the top-level structure scream the domain, not the framework?

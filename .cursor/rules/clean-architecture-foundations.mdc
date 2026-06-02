@@ -1,0 +1,28 @@
+---
+description: Clean Architecture foundational goals and programming paradigms — why structure matters and the discipline behind structured/OO/functional programming. Apply when reasoning about overall design quality and paradigm choices.
+alwaysApply: false
+---
+
+# Clean Architecture: Foundations & Paradigms
+
+Distilled from Robert C. Martin's *Clean Architecture*.
+
+## Foundational Goals
+
+- **The goal of architecture is to minimize the human resources required to build and maintain the system.** Measure design quality by the effort required to meet customer needs over the system's lifetime. If that effort stays low, the design is good; if it grows with each release, the design is bad.
+- **Software has two values: behavior and structure. Structure is the greater value** because it is what keeps software "soft" (changeable). A program that works but cannot be changed becomes useless when requirements change; a program that is easy to change can always be made to work.
+- **The difficulty of a change should be proportional to the *scope* of the change, not its *shape*.** When new features require massive rework because they don't fit the system's shape, the architecture is failing.
+- **Keep architectures as shape-agnostic as practical.** Don't let the structure prefer one kind of feature over others.
+- **Fight for the architecture.** As a developer you are a stakeholder; the importance of architecture (important, rarely urgent) must be asserted over the urgency of features (urgent, often not important). If architecture comes last, the system becomes ever more costly until change is practically impossible.
+- **The only way to go fast is to go well.** Making messes is always slower than staying clean, on every time scale. Rewrites driven by overconfidence reproduce the same mess.
+
+## Programming Paradigms (the building blocks)
+
+Each paradigm *removes* a capability and imposes discipline. They map directly onto architectural concerns.
+
+- **Structured programming = discipline on direct transfer of control.** Build from sequence, selection, and iteration only; avoid unrestrained `goto`. This lets you recursively decompose programs into small, falsifiable (testable) units. Functional decomposition and testability are direct consequences.
+  - *Software is like science: you can prove code incorrect (via tests) but never prove it correct. So make modules, components, and services easily falsifiable (testable).*
+- **Object-oriented programming = discipline on indirect transfer of control.** OO's architectural value is **polymorphism**, which gives **absolute control over the direction of every source-code dependency**. This enables the **plugin architecture**: high-level policy is independent of low-level detail, and details become plugins that can be developed and deployed independently.
+- **Functional programming = discipline on assignment.** Variables don't vary. Since all race conditions, deadlocks, and concurrent-update bugs stem from mutable state, push as much processing as possible into immutable components.
+  - **Segregate mutability:** isolate the components that mutate state; protect mutable state with transactional memory / disciplined update mechanisms.
+  - Consider **event sourcing** (store transactions, not state) to make systems entirely immutable (CR instead of CRUD) where storage/processing permit.

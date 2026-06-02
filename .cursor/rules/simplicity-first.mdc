@@ -1,0 +1,16 @@
+---
+description: Prefer simple solutions; add complexity only when required
+alwaysApply: true
+---
+
+# Simplicity First
+
+Optimize for simplicity by default.
+
+- Choose the simplest design that can meet the current requirement.
+- Avoid introducing new services, layers, abstractions, or dependencies unless they are necessary to deliver the target feature, safety, or reliability requirement.
+- Prefer incremental evolution of existing components over large rewrites.
+- When a more complex approach is proposed, explicitly justify why simpler alternatives are insufficient.
+- Keep architecture and implementation explanations concise and practical.
+
+When tradeoffs exist, recommend the low-complexity option first and escalate complexity only with clear necessity.

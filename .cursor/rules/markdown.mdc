@@ -1,0 +1,21 @@
+---
+alwaysApply: false
+---
+
+# Markdown & Mermaid Rules
+
+## Mermaid diagrams
+- Always wrap diagrams in fenced code blocks with language `mermaid`.
+- Close every diagram properly (` ``` `) and close every `subgraph` with `end`.
+- Avoid HTML in node labels (no `<br/>`, `<i>`, `<b>`, etc.). Use plain text.
+- If a node label contains braces, brackets, angle brackets, or other punctuation that can confuse the parser, wrap the label in double quotes. Example: `A["Appraisal Template {type, value} structure"]`.
+- Prefer simple labels without commas or special characters when possible.
+- Keep edges and node IDs alphanumeric/underscore; avoid spaces in IDs. Use labels for spaces.
+- For newlines in labels, prefer separate nodes or concise text rather than line breaks.
+- Run a quick visual/syntax check: each `subgraph` has a matching `end`; no stray `end` at the end of the diagram.
+
+## Markdown hygiene
+- Use fenced code blocks with a language hint for all code/diagrams.
+- Keep tables ASCII-only; avoid HTML inside markdown tables.
+- Avoid trailing spaces and mixed tabs/spaces in fenced blocks.
+- Prefer inline code for short literals and file paths.

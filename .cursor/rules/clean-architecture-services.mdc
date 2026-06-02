@@ -1,0 +1,11 @@
+---
+description: Clean Architecture — services and micro-services are not an architecture by themselves; boundaries run through services. Apply when designing service/micro-service systems.
+alwaysApply: false
+---
+
+# Clean Architecture: Services
+
+- **Services are not, by themselves, an architecture.** Architecture is defined by the **boundaries and the dependencies that cross them**, not by the physical mechanism of communication. Services that merely separate behaviors are just expensive function calls.
+- **The decoupling fallacy:** services are decoupled at the variable level but **strongly coupled through the data they share** (add a field, change every service that touches it).
+- **The independent-deploy fallacy:** cross-cutting concerns (e.g., the "Kitty" feature) can force *every* service to change, requiring coordinated dev/deploy.
+- **Fix with components, not just processes.** Design services internally with SOLID and a component structure so new features arrive as new derivative classes/jars (OCP). **Architectural boundaries run *through* services, dividing them into components**—they don't fall between services.

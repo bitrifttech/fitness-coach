@@ -1,0 +1,64 @@
+---
+description: Clean Code function principles — small, do one thing, few arguments, no side effects (Ch.3 + heuristics F1–F4, G30, G34)
+alwaysApply: true
+---
+
+# Clean Code: Functions
+
+## Size & structure
+- **Keep functions small** (ideally a handful of lines; rarely > ~20). Control-block bodies (`if/else/while`) should be one line — usually a call to a well-named function. Keep nesting/indent to one or two levels.
+- **Do one thing**, at one level of abstraction below the function's name. If you can extract another function whose name isn't just a restatement, it did more than one thing. No "sections" within a function.
+- **Keep one level of abstraction per function (G34).** Don't mix high-level calls with low-level string/`append` details.
+- **Follow the stepdown rule.** Code reads top-to-bottom; each function is followed by those one level lower.
+
+## Switch / conditionals
+- **Bury switch statements; prefer polymorphism (G23).** Tolerate a switch only once, in a factory, creating polymorphic objects. "One switch per selection type."
+- **Encapsulate conditionals (G28)**: `if (shouldBeDeleted(timer))` over raw boolean logic. **Prefer positive conditionals (G29).**
+
+## Arguments
+- **Fewer is better: 0 > 1 > 2 > 3.** More than three needs strong justification (F1). Wrap related args into an object; varargs count as one arg.
+- **No flag/selector arguments (F3, G15)** — split into separate functions (`renderForSuite()` / `renderForSingleTest()`).
+- **No output arguments (F2)** — mutate the owning object or return a value.
+- Eliminate args by moving state onto the owning object (`outputStream.writeField(name)`).
+
+## Behavior
+- **No hidden side effects.** A function must do only what its name promises. Make required call order explicit by passing results forward, not via hidden temporal coupling (G31).
+- **Command-Query Separation.** A function either does something or answers something — never both.
+- **Prefer exceptions to error codes; extract try/catch bodies; error handling is one thing** (if `try` is present it's the first word, nothing follows the catch).
+- **DRY** — extract repeated logic (G5). **Delete dead functions** (F4, G9).
+- **Function names must say what they do (G20)**, including whether they mutate or return.
+
+## Example — do one thing + descriptive delegation
+
+```java
+// BAD: mixed levels, flag arg, does many things
+public Money calculatePay(Employee e) {
+  switch (e.type) {
+    case HOURLY:   return calculateHourlyPay(e);
+    case SALARIED: return calculateSalariedPay(e);
+    default:       throw new InvalidEmployeeType(e.type);
+  }
+}
+
+// GOOD: polymorphism; switch lives once in a factory
+public abstract class Employee { public abstract Money calculatePay(); }
+
+public Employee makeEmployee(EmployeeRecord r) {
+  switch (r.type) {
+    case HOURLY:   return new HourlyEmployee(r);
+    case SALARIED: return new SalariedEmployee(r);
+    default:       throw new InvalidEmployeeType(r.type);
+  }
+}
+```
+
+## Example — Command-Query Separation
+
+```java
+// BAD: set() both acts and reports
+if (set("username", "unclebob")) { ... }
+
+// GOOD
+if (attributeExists("username"))
+  setAttribute("username", "unclebob");
+```

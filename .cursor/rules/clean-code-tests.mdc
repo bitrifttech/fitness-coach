@@ -1,0 +1,39 @@
+---
+description: Clean Code unit testing — TDD laws, clean readable tests, F.I.R.S.T (Ch.9 + heuristics T1–T9)
+alwaysApply: true
+---
+
+# Clean Code: Unit Tests
+
+- **Write automated tests, not throwaway drivers**, and check them in with production code.
+- **The Three Laws of TDD:** (1) no production code until a failing test exists; (2) write only enough test to fail (not compiling = failing); (3) write only enough production code to pass the current test.
+- **Keep tests as clean as production code.** Dirty tests get abandoned, and then the code rots. Tests preserve flexibility/maintainability by removing fear of change ("the -ilities").
+- **Readability first.** Use a **BUILD-OPERATE-CHECK** structure and evolve a **domain-specific testing language** of helpers so tests say a lot with few expressions.
+- **Dual standard:** test code may trade efficiency for simplicity (it runs in a test environment) — but never trade cleanliness.
+- **One concept per test;** minimize asserts per test. Don't cram unrelated scenarios into one test function.
+
+```java
+// Clean, intent-revealing test via helper DSL
+makePages("PageOne", "PageOne.ChildOne", "PageTwo");
+submitRequest("root", "type:pages");
+assertResponseIsXML();
+assertResponseContains("<name>PageOne</name>");
+```
+
+## F.I.R.S.T
+- **Fast** — slow tests don't get run.
+- **Independent** — no test depends on another; any order.
+- **Repeatable** — pass in any environment, offline included.
+- **Self-Validating** — boolean pass/fail, no manual inspection.
+- **Timely** — written just before the production code they cover.
+
+## Heuristics (T1–T9)
+- **T1** Tests are insufficient while any breakable condition is unverified.
+- **T2** Use a coverage tool.
+- **T3** Don't skip trivial tests.
+- **T4** An ignored/commented test is a question about an ambiguity.
+- **T5** Test boundary conditions.
+- **T6** Bugs cluster — exhaustively test near a found bug.
+- **T7** Patterns of failure are revealing.
+- **T8** Coverage patterns of passing tests reveal why failures happen.
+- **T9** Keep tests fast.

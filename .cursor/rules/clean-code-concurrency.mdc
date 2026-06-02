@@ -1,0 +1,33 @@
+---
+description: Clean Code concurrency — decouple what from when, defend shared state, test threaded code (Ch.13)
+globs: **/*.{java,kt,scala,go,cs,cpp,cc,rs,py,js,ts}
+alwaysApply: false
+---
+
+# Clean Code: Concurrency
+
+Concurrency is a **decoupling strategy** (separates *what* from *when*). Adopt it when throughput/response demands it — it adds real complexity and hard-to-reproduce bugs.
+
+## Defense principles
+- **Single Responsibility:** keep concurrency code separate from other logic (its own lifecycle and failure modes).
+- **Limit the scope of shared data.** Encapsulate aggressively; every extra place that mutates shared state risks a missed lock.
+- **Use copies of data** (read-only copies, or merge per-thread copies in one thread) to avoid sharing when feasible.
+- **Make threads as independent as possible** — local, unshared data so each thread runs as if alone.
+
+## Practices
+- **Know your library:** prefer thread-safe collections / `java.util.concurrent` (`ConcurrentHashMap`, executors, atomics, locks); know which classes are *not* thread-safe.
+- **Know execution models:** Producer-Consumer, Readers-Writers, Dining Philosophers — study their classic solutions.
+- **Avoid dependencies between synchronized methods** on a shared object; if unavoidable use client-based, server-based, or adapted-server locking.
+- **Keep synchronized sections small** — lock only the true critical section.
+- **Shutdown code is hard** — design and test graceful shutdown early (watch for deadlock).
+
+## Testing threaded code
+- Write tests that can expose concurrency bugs and run them often, across configurations and platforms; **never dismiss a spurious failure** as a one-off.
+- **Get non-threaded logic working first** (POJOs); don't chase threading and non-threading bugs at once.
+- Make threaded code **pluggable and tunable** (thread counts, timing); **run with more threads than processors**.
+- **Instrument code (`sleep`/`yield`/jiggle) to force rare interleavings** — in tests, not production.
+
+```java
+// Unsynchronized shared mutation is non-deterministic
+public int getNextId() { return ++lastIdUsed; } // two threads can both return 43
+```

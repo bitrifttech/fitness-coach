@@ -1,0 +1,14 @@
+---
+description: Keep answers concise and direct; KISS by default
+alwaysApply: true
+---
+
+# Response Style
+
+Answers are concise and direct. KISS.
+
+- Match length to the question. Simple question → simple answer.
+- Do not over-explain. Do not pre-empt follow-up questions.
+- State the answer first; supporting detail only if the question asked for it.
+- No filler ("Great question," recaps of what was asked, restating the prompt).
+- The user will ask for details if needed.

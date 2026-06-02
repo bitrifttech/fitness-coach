@@ -1,0 +1,51 @@
+---
+description: Clean Architecture component principles — cohesion (REP, CCP, CRP) and coupling (ADP, SDP, SAP). Apply when deciding which classes belong in which deployable component and how components depend on each other.
+alwaysApply: false
+---
+
+# Clean Architecture: Component Cohesion & Coupling
+
+## Component Cohesion (which classes belong in which component)
+
+Components are the **units of deployment** (jar/gem/DLL). Well-designed components stay independently deployable and developable.
+
+### REP — Reuse/Release Equivalence Principle
+**The granule of reuse is the granule of release.** Classes grouped into a component must share a coherent theme/purpose and be releasable together, with version numbers and release notes. People can't reuse what isn't tracked and released.
+
+### CCP — Common Closure Principle
+**Gather into a component the classes that change for the same reasons and at the same times; separate those that change at different times or for different reasons.** This is SRP at the component level. Confining a change to one component means only that component needs revalidation/redeployment. Closely related to OCP ("closure").
+
+### CRP — Common Reuse Principle
+**Don't force users of a component to depend on things they don't need.** Classes/modules that are reused together belong together; classes that are NOT tightly bound should NOT be in the same component. This is ISP generalized: *don't depend on things you don't need.* It tells you what to keep *out* of a component.
+
+### The Cohesion Tension
+REP and CCP are **inclusive** (grow components); CRP is **exclusive** (shrink components). Good architects balance the tension and re-balance over time: early projects favor CCP (developability); mature, widely-reused projects shift toward REP (reusability). Component composition will jitter and evolve—expect it.
+
+## Component Coupling (relationships between components)
+
+### ADP — Acyclic Dependencies Principle
+**Allow no cycles in the component dependency graph.** Keep it a Directed Acyclic Graph (DAG) so the system can be built bottom-up, tested in isolation, and released without the "morning-after syndrome."
+
+Break cycles by:
+1. **Applying DIP** — introduce an interface to invert one of the dependencies, or
+2. **Creating a new component** that the cycle members both depend on.
+
+The component structure is **not** designed top-down; it **evolves** with the system and must be continuously monitored for cycles.
+
+### SDP — Stable Dependencies Principle
+**Depend in the direction of stability.** Don't let a volatile component be depended on by a stable one.
+
+- **Stability ≈ how hard it is to change**, driven largely by incoming dependencies.
+- **Instability `I = Fan-out / (Fan-in + Fan-out)`**, range [0,1]. `I=0` = maximally stable (depended-on, depends on nothing); `I=1` = maximally unstable.
+- **`I` must decrease in the direction of dependency.** Put unstable components at the top of diagrams—any upward arrow violates SDP.
+- Use **abstract components** (interfaces only) as very stable dependency targets, especially in statically typed languages.
+
+### SAP — Stable Abstractions Principle
+**A component should be as abstract as it is stable.** Stable components should be abstract (so stability doesn't prevent extension); unstable components should be concrete (so they're easy to change). Put high-level policy in stable, abstract components.
+
+- **Abstractness `A = (abstract classes + interfaces) / total classes`**, range [0,1].
+- SDP + SAP together = DIP for components (dependencies run toward abstraction).
+- **Main Sequence:** the line from (A=1,I=0) to (A=0,I=1). Keep components near it.
+  - **Zone of Pain** (A≈0, I≈0): stable + concrete = rigid (e.g., a volatile DB schema). Avoid for volatile components.
+  - **Zone of Uselessness** (A≈1, I≈1): abstract + nobody depends on it = dead abstractions. Avoid.
+- **Distance `D = |A + I − 1|`**. Aim for `D` near 0; investigate outliers and track `D` over time.

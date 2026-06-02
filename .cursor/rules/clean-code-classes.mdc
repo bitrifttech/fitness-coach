@@ -1,0 +1,38 @@
+---
+description: Clean Code class design — small classes, SRP, cohesion, OCP, DIP (Ch.10)
+alwaysApply: true
+---
+
+# Clean Code: Classes
+
+## Organization & encapsulation
+- **Standard order:** public static constants → private static → private instance vars → public methods, with each private helper just below the public method that uses it (stepdown).
+- **Keep variables/utilities private.** Loosen to package/protected only when a same-package test truly needs it.
+
+## Small & single-responsibility
+- **Classes should be small — measured by responsibilities, not lines.** You should describe the class in ~25 words without "if/and/or/but".
+- **Single Responsibility Principle (SRP):** one, and only one, reason to change. Vague names (`Processor`, `Manager`, `Super`) signal too many responsibilities — even a 5-method class can violate SRP.
+- **Prefer many small, well-named classes over a few large ones.** Same total complexity, but every "drawer" is labeled.
+- **Getting it working ≠ making it clean.** After it works, refactor overstuffed classes into focused units.
+
+## Cohesion
+- **Maximize cohesion:** few instance variables; each method uses one or more of them. When only a subset of methods uses a subset of variables, **extract a new class.** Don't promote locals to fields just to avoid passing args.
+
+## Organizing for change
+- **Open-Closed Principle (OCP):** open for extension, closed for modification — add a new subclass instead of editing existing classes.
+
+```java
+// Split a multi-statement Sql class by responsibility (SRP + OCP)
+abstract class Sql { abstract String generate(); }
+class CreateSql extends Sql { ... }
+class SelectSql extends Sql { ... }
+class UpdateSql extends Sql { ... } // added without touching the others
+```
+
+- **Dependency Inversion Principle (DIP):** depend on abstractions, not concrete details. This isolates from change and enables testing/reuse.
+
+```java
+public interface StockExchange { Money currentPrice(String symbol); }
+public Portfolio(StockExchange exchange) { this.exchange = exchange; }
+// Test with a FixedStockExchangeStub instead of the live exchange
+```

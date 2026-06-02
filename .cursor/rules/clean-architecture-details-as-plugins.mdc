@@ -1,0 +1,31 @@
+---
+description: Clean Architecture — database, web, and frameworks are details to keep behind boundaries as plugins, plus clean embedded architecture (HAL/OSAL/PAL). Apply when integrating DBs, web/UI, frameworks, or embedded/hardware concerns.
+alwaysApply: false
+---
+
+# Clean Architecture: Details Are Plugins (incl. Embedded)
+
+## Clean Embedded Architecture (and the general lesson)
+- **"Software" can have a long life; "firmware" becomes obsolete.** Code is firmware not because of where it's stored, but **because of what it depends on**. You write firmware whenever you bury SQL in code, spread platform dependencies, or fail to separate business logic from a platform API (e.g., the Android API).
+- **First make it work, then make it right, then make it fast** (Beck). Passing only the "make it work" App-titude test denies code a long life.
+- **The hardware/OS/processor are details. Separate them** behind layers:
+  - **HAL (Hardware Abstraction Layer):** express services the *software* needs (`Indicate_LowBattery()`), not low-level access (`Led_TurnOn(5)`). Don't reveal hardware details to HAL users. Layers may contain layers (fractal).
+  - **OSAL (OS Abstraction Layer):** isolate software from the RTOS/OS so it can be tested off-OS and ported.
+  - **PAL (Processor Abstraction Layer):** confine vendor C extensions / register access to firmware. Prefer `stdint.h` over vendor type headers.
+- **Program to interfaces; enable substitutability** so code is testable off-target. Use header files as interface definitions; **limit headers to function declarations and the constants/structs the function needs**—don't leak implementation detail (it creates unwanted dependencies).
+- **DRY out conditional-compilation directives** (`#ifdef BOARD_V2` repeated everywhere). Hide hardware type under the HAL and bind via the linker/runtime instead.
+
+## The Database Is a Detail
+- **The data model is architecturally significant; the database is not.** A database is a utility/mechanism for moving bits between disk and RAM.
+- **Restrict knowledge of table/row structure to the lowest-level utility functions** in the outer circles. **Don't pass database rows/tables around the system as objects**—it couples use cases, business rules, and UI to the relational structure.
+- Performance of data access is a low-level concern, fully encapsulable away from business rules.
+- Marketing/check-box pressure may force a particular DB; if so, bolt it on at the edge behind a narrow, safe data-access channel—keep it out of the architectural core.
+
+## The Web Is a Detail
+- **The GUI is a detail; the web is a GUI; therefore the web is a detail / an IO device.** Decouple business rules from the UI—marketing can change the UI at any time.
+- Model business logic as use cases with complete input data and resultant output data, so the use case operates the UI as a device-independent IO. (The chatty UI ↔ app "dance" is hard to fully abstract, but the use-case boundary can be.)
+
+## Frameworks Are Details
+- **Don't marry the framework.** The relationship is asymmetric: you commit hugely; the author commits nothing to you. Frameworks tend to violate the Dependency Rule by asking you to inherit their base classes into your Entities.
+- **Use the framework, but keep it at arm's length, in an outer circle.** Derive proxies, not business objects, from framework classes; keep proxies in plugin components.
+- Example: use Spring for DI, but **inject dependencies into `Main`**—don't sprinkle `@Autowired` through business objects. Some frameworks (language standard libraries, STL) you must marry—but make it a conscious, deliberate decision.

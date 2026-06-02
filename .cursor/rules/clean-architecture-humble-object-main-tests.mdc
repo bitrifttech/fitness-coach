@@ -1,0 +1,32 @@
+---
+description: Clean Architecture — Humble Object pattern, the Main component, and the Test boundary. Apply when isolating hard-to-test code, wiring dependencies, and designing for testability.
+alwaysApply: false
+---
+
+# Clean Architecture: Humble Object, Main & Test Boundary
+
+## Humble Object Pattern (protecting boundaries & testability)
+
+Split behaviors into a **hard-to-test "humble" part** (kept minimal) and an **easy-to-test part**. This often defines an architectural boundary.
+
+- **Presenter / View:** the View is humble (just moves data to the screen); the Presenter is testable and builds a **View Model** containing only strings, booleans, and enums (pre-formatted dates, currency, button names, gray-out flags). The View does nothing but copy the View Model to the screen.
+- **Database gateways:** polymorphic interfaces with one method per CRUD operation the app needs; implemented by humble objects in the DB layer. Interactors stay testable via stubbed gateways.
+- **Data mappers / ORMs** belong in the **database layer** (there's no true "object-relational" mapper—objects are operations, data structures are public data). They're another humble-object boundary.
+- **Service listeners** are humble objects converting between the service interface and simple data structures.
+
+At every architectural boundary, expect a Humble Object and a simple data structure crossing it.
+
+## The Main Component
+
+- **`Main` is the ultimate detail**, the lowest-level policy, the entry point. Nothing depends on it except the OS.
+- Its job: create all **Factories, Strategies, and global facilities**, perform configuration, gather outside resources, then **hand control to the high-level policy**.
+- **Inject dependencies in `Main`** (this is where a DI framework belongs); after injection, distribute dependencies normally without the framework.
+- Think of `Main` as a **plugin** behind an architectural boundary. Have **one `Main` per configuration** (Dev/Test/Prod, per country, per customer). "The dirtiest of all the dirty components."
+
+## The Test Boundary
+
+- **Tests are part of the system** and follow the Dependency Rule—think of them as the outermost circle. Nothing depends on the tests; the tests depend inward. Tests are independently deployable and the most isolated component.
+- **Design for testability. First rule: don't depend on volatile things** (GUIs are volatile—don't test business rules through the GUI).
+- **Fragile Tests Problem:** tests strongly coupled to system structure break en masse on small changes, which makes the system *rigid* (developers fear changing it).
+- **Structural coupling** (a test class per production class, a test method per production method) is the most insidious form. Hide the application's structure from tests.
+- Create a **testing API** that lets tests verify business rules while bypassing the UI, security, and expensive resources (e.g., the DB). It decouples the *structure* of the tests from the *structure* of the app, letting both evolve independently. If its "superpowers" are risky, keep the testing API in a separate, independently deployable component.

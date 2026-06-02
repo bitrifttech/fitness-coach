@@ -1,0 +1,32 @@
+---
+description: Clean Code formatting principles — vertical/horizontal layout for readability + one-step build/test (Ch.5 + heuristics E1–E2)
+alwaysApply: true
+---
+
+# Clean Code: Formatting
+
+Formatting is communication, and it outlives the current behavior of the code. Pick a small rule set, apply it consistently, and **enforce it with an automated formatter**. On a team, follow the team's agreed style over personal taste.
+
+## Vertical formatting
+- **Prefer small files** (~200 lines typical, rarely > ~500 — a guideline).
+- **Newspaper metaphor:** high-level concepts and an explanatory name at top; increasing detail downward; lowest-level functions at the bottom.
+- **Blank lines separate concepts**; **keep related lines vertically dense** (don't break up tightly related fields with noise).
+- **Declare variables near their use**; loop indices in the `for`; **instance variables at a single well-known place** (class top in Java).
+- **Callers above callees**; functions with **conceptual affinity** stay together (`assertTrue`/`assertFalse`).
+
+## Horizontal formatting
+- **Keep lines short** (well under ~120 chars; don't shrink fonts to cheat).
+- Use whitespace to group: spaces around assignment operators and after commas; no space between a function name and `(`; tighten high-precedence factors.
+- **Don't horizontally align** columns of names/values — it draws the eye wrong and signals an over-large class.
+- **Indent to show scope**; **don't collapse scopes to one line** (no one-line `if`/`while`/methods).
+- **Make dummy (empty) loop bodies visible** — braces or `;` on its own line.
+
+```java
+// Make an empty loop body unmistakable
+while (dis.read(buf, 0, readBufferSize) != -1)
+  ;
+```
+
+## Environment heuristics
+- **E1: Build in one step.** One checkout + one build command — no scavenger hunt.
+- **E2: Run all tests in one step.** Ideally one IDE button, at worst one shell command.

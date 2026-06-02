@@ -1,0 +1,36 @@
+---
+description: Clean Architecture boundaries — drawing lines between policy and details, boundary crossing costs, and partial boundaries. Apply when separating business rules from IO/DB/UI/frameworks.
+alwaysApply: true
+---
+
+# Clean Architecture: Boundaries
+
+- **Architecture is the art of drawing boundary lines** that restrict what one side knows about the other. Draw lines between things that matter (business rules) and things that don't (GUI, DB, frameworks). What saps productivity is **coupling to premature decisions** (frameworks, DBs, web servers, DI).
+- **Draw boundaries along axes of change** (where components change at different rates / for different reasons)—this is SRP applied to boundaries.
+- **The IO is irrelevant.** The GUI is not the system; behind it is a model that could run without any interface. Put the DB and GUI behind interfaces so they are **plugins** to the business rules.
+- **Make dependency relationships asymmetric** (like ReSharper → Visual Studio): the less-important side depends on the more-important side. The plugin can't damage the core; changes can't propagate inward.
+
+```text
+// Direction of source-code dependency, NOT data flow:
+GUI ─────▶ BusinessRules ◀───── Database
+        (plugins depend on the core; the core depends on nothing peripheral)
+```
+
+- Implement boundaries with the **Dependency Inversion Principle** + **Stable Abstractions Principle**: arrows point from low-level details toward high-level abstractions.
+
+## Boundary Anatomy (crossing costs)
+A boundary crossing is just a function call passing data; the trick is managing source-code dependencies. From cheapest/chattiest to strongest/most expensive:
+- **Monolith (source-level):** disciplined partition in one executable; communication is plain function calls (chatty OK). Relies on dynamic polymorphism. The *definition of the data passed inward lives on the calling side* when crossing against the flow of control.
+- **Deployment components:** dynamically linked units; still function calls, still chatty OK.
+- **Threads:** not boundaries—just scheduling.
+- **Local processes:** separate address spaces; communicate via sockets/IPC. Higher-level process must not know names/addresses/keys of lower-level ones. Moderately expensive—limit chattiness.
+- **Services:** strongest boundary; assume all comms over the network. High latency—avoid chatty interfaces. Higher-level services must not contain physical knowledge (URIs) of lower-level ones.
+
+Most systems mix boundary strategies.
+
+## Partial Boundaries (when a full boundary is too expensive but you might need it later)
+- **Skip the last step:** build the full reciprocal interfaces + I/O structures but keep everything in one component (no separate release management). *Watch out: dependencies tend to creep across the line over time.*
+- **One-dimensional (Strategy pattern):** a single interface for future isolation; degrades easily without reciprocal interfaces.
+- **Facade:** simplest; even dependency inversion is sacrificed (client has transitive dependencies on services).
+
+It's the architect's job to decide where boundaries *might* one day exist and whether to fully, partially, or not implement them—then watch for friction and add boundaries at the inflection point where the cost of having one drops below the cost of not having one.

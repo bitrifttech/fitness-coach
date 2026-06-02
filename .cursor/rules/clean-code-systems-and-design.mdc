@@ -1,0 +1,35 @@
+---
+description: Clean Code systems & emergent design — separate construction from use, DI, incremental architecture, Beck's four rules (Ch.11–12)
+alwaysApply: true
+---
+
+# Clean Code: Systems & Emergent Design
+
+## Systems (Ch.11)
+- **Separate construction from use.** Don't mix object wiring / lazy-init with runtime logic. Move construction to `main` (or modules it calls); application code assumes everything is already built. Dependency arrows point away from `main`.
+- **Apply Dependency Injection.** Objects shouldn't instantiate their own dependencies — inject via constructor/setter or a container; the class stays passive about resolution. Use an **Abstract Factory** when the app must control *when* objects are created.
+- **Grow architecture incrementally.** You can't get it right up front — implement today's stories, refactor, expand. **Avoid Big Design Up Front (BDUF)** and over-engineered/heavyweight frameworks.
+- **Separate cross-cutting concerns** (persistence, security, transactions) with aspects/proxies/DI. Write **domain logic as POJOs**, wire infrastructure declaratively.
+- **Defer decisions until the last responsible moment**; **use standards only when they add demonstrable value**; build **DSLs** so code reads like the domain. Use the simplest thing that can possibly work.
+
+## Emergence — Kent Beck's four rules of simple design (Ch.12, in priority order)
+1. **Runs all the tests.** A testable design forces small, SRP-compliant, loosely coupled (DIP) classes.
+2. **Contains no duplication** — the primary enemy of good design. Eliminate it everywhere; use Template Method/Strategy for higher-level duplication.
+3. **Expresses programmer intent** — good names, small functions/classes, standard pattern names, expressive tests. *Try* — care about your future reader.
+4. **Minimizes the number of classes and methods** (lowest priority) — keep the system small, but don't be dogmatic about tiny classes; tests, no-duplication, and expressiveness come first.
+
+```java
+// Rule 2 — unify duplicated implementation
+boolean isEmpty() { return 0 == size(); }
+
+// Template Method for algorithms differing in one step
+abstract class VacationPolicy {
+  public void accrueVacation() {
+    calculateBaseVacationHours();
+    alterForLegalMinimums();   // overridden per region
+    applyToPayroll();
+  }
+}
+```
+
+- **Refactor continuously** once tests exist: add a little, pause, check whether the design degraded, clean up, keep tests green.

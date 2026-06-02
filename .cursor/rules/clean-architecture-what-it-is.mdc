@@ -1,0 +1,38 @@
+---
+description: Clean Architecture — what architecture is, its purpose across the system life cycle, and how to achieve independence/decoupling. Apply when scoping architecture work and choosing decoupling modes.
+alwaysApply: false
+---
+
+# Clean Architecture: What Architecture Is & Independence
+
+## What Architecture Is
+
+- **The architect is a programmer and stays a programmer.** Architects guide the design while still writing code, so they feel the problems they create for others.
+- Architecture is the **shape** given to the system: division into components, their arrangement, and how they communicate.
+- **The primary purpose of architecture is to support the life cycle of the system**: make it easy to **develop, deploy, operate, and maintain**, minimizing lifetime cost and maximizing productivity. Architecture has little to do with whether the system *works*.
+- **Strategy: leave as many options open as possible, for as long as possible.**
+- **Decompose every system into policy and details.** Policy = business rules (the value). Details = IO, DB, web, frameworks, protocols, etc. (mechanisms that enable communication with policy but don't affect it). **Make details irrelevant to policy so decisions about them can be deferred.**
+  - Don't choose the database, web server, REST/SOA, or DI framework early—high-level policy must not care about them.
+  - **A good architect maximizes the number of decisions NOT made.** Even if a vendor decision was already made, shape the system as if it could still change.
+- **Device independence** is the timeless example: depend on abstract IO services, not specific devices (OCP was "born" here). Decouple policy from physical detail (e.g., relative vs. physical disk addressing).
+
+### Deployment / Operation / Development / Maintenance
+- **Development:** Conway's Law — system structure mirrors org communication structure. Partition into well-isolated, independently developable components so teams don't interfere.
+- **Deployment:** aim for **immediate deployment with a single action**; don't rely on dozens of scripts and manual file placement. Consider deployment early (e.g., don't blindly adopt micro-services that are hard to wire up).
+- **Operation:** architecture should **reveal operation**—elevate use cases/features to first-class, visible elements. Most operational problems can be solved with more hardware; dev/deploy/maintenance costs dominate.
+- **Maintenance** is the most costly aspect (spelunking + risk). Stable interfaces between isolated components illuminate change pathways and reduce breakage risk.
+
+## Independence & Decoupling
+
+- A good architecture supports use cases, operation, development, and deployment, and leaves options open even when those targets are unknown and changing.
+- **Decouple horizontally into layers** (UI, application-specific business rules, application-independent business rules, database) using SRP + CCP.
+- **Decouple vertically by use case.** Use cases are thin vertical slices cutting through the layers. Keep `addOrder` separate from `deleteOrder` (UI, rules, and DB) so new use cases don't disturb existing ones.
+- **Beware false duplication.** *True* duplication changes together always; *accidental* duplication merely looks alike now and will diverge. Don't unify code (e.g., similar screens, or DB record ↔ view model) just because it looks similar today—create separate view models to keep layers decoupled.
+
+### Decoupling Modes (choose deliberately, keep it flexible)
+1. **Source level** — manage source dependencies; components share an address space (monolith).
+2. **Deployment level** — independently deployable units (jars/DLLs/gems) so changes don't force rebuilds of others.
+3. **Service level** — communicate only via data structures over the network (services/micro-services).
+
+- Don't default to services everywhere: service decoupling is expensive (dev time + resources) and coarse-grained.
+- **Preferred approach:** push design to the point where a service *could* be formed, but keep components in the same address space as long as possible. A good architecture lets a system be born a monolith and grow into deployable units/services—and slide back—protecting the bulk of the source from those changes.

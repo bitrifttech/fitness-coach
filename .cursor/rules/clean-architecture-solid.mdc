@@ -1,0 +1,70 @@
+---
+description: Clean Architecture SOLID principles (SRP, OCP, LSP, ISP, DIP) for arranging functions and data into modules. Apply when designing classes/modules and their dependencies.
+alwaysApply: true
+---
+
+# Clean Architecture: SOLID Principles
+
+Goal of SOLID: create mid-level structures that **tolerate change, are easy to understand, and are reusable**.
+
+## SRP — Single Responsibility Principle
+**A module should be responsible to one, and only one, actor** (a single user/stakeholder group that is a source of change). It is NOT "a module does one thing."
+
+- Symptoms of violation: **accidental duplication** (shared code coupling different actors) and **merge conflicts** (different actors editing the same module).
+- Separate code that different actors depend on.
+
+```text
+// BAD: one class serves three actors (CFO, COO, CTO)
+class Employee {
+  calculatePay()   // accounting / CFO
+  reportHours()    // HR / COO
+  save()           // DBAs / CTO
+}
+// A change for the CFO can silently break the COO's report via a shared helper.
+
+// GOOD: separate per-actor classes over a shared data structure,
+// optionally fronted by a Facade.
+class PayCalculator { calculatePay(EmployeeData) }
+class HourReporter  { reportHours(EmployeeData) }
+class EmployeeSaver { save(EmployeeData) }
+struct EmployeeData { /* no methods */ }
+```
+
+## OCP — Open–Closed Principle
+**A software artifact should be open for extension but closed for modification.** Extend behavior by adding new code, not by changing existing code.
+
+- Achieve it by separating things that change for different reasons (SRP) and organizing dependencies (DIP) so changes don't propagate.
+- Arrange components into a **hierarchy of protection by level**: higher-level (more important) components are protected from changes in lower-level ones. *If component A must be protected from changes in B, then B should depend on A.*
+- Use **information hiding** to prevent transitive dependencies (don't let a controller see entity internals it doesn't use).
+
+## LSP — Liskov Substitution Principle
+**Subtypes must be substitutable for their base types** without changing the correctness of programs that use them. Applies to interfaces and implementations of all kinds (Java interfaces, duck-typed classes, REST services).
+
+- The classic violation is Square-as-subtype-of-Rectangle: behavior differs, forcing users to add type checks.
+- A substitutability violation pollutes the architecture with extra mechanisms (`if (x.startsWith("acme"))` special cases). Drive variation through configuration/data, not hard-coded conditionals.
+
+```text
+// BAD: non-substitutable services force special-casing in the caller
+if (driver.getDispatchUri().startsWith("acme.com")) { /* different rules */ }
+
+// GOOD: keep interfaces substitutable; drive differences via a config table
+uri-pattern -> dispatch-format    // data, not code branches
+```
+
+## ISP — Interface Segregation Principle
+**Don't depend on things you don't use.** Don't force a client to depend on methods (or, more generally, baggage) it doesn't need.
+
+- In statically typed languages, depending on a fat interface forces unnecessary recompilation/redeployment when unrelated parts change.
+- Architecturally: depending on a module that carries extra baggage (e.g., a framework bound to a specific database you don't use) imports troubles you didn't expect. Split interfaces by client need.
+
+## DIP — Dependency Inversion Principle
+**Depend on abstractions, not on concretions.** Source-code dependencies should refer only to interfaces/abstract declarations, never to volatile concrete classes.
+
+Concrete coding practices:
+- **Don't refer to volatile concrete classes**—refer to abstract interfaces. (This forces use of Abstract Factories for object creation.)
+- **Don't derive from volatile concrete classes.**
+- **Don't override concrete functions**—make them abstract with multiple implementations.
+- **Never mention the name of anything concrete and volatile.**
+- It's fine to depend on stable concretions (e.g., `String`, OS/platform facilities). Target *volatile* elements you're actively developing.
+- Use **Abstract Factories** to create concrete objects without depending on their concrete types. The flow of control crosses the boundary opposite to the source-code dependencies—hence "inversion."
+- Gather unavoidable DIP violations into a small number of concrete components (typically `Main`).

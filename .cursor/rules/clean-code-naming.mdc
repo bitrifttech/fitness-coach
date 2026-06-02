@@ -1,0 +1,47 @@
+---
+description: Clean Code naming principles — intention-revealing, unambiguous, searchable names (Ch.2 + heuristics N1–N7, J2–J3)
+alwaysApply: true
+---
+
+# Clean Code: Meaningful Names
+
+Names are ~90% of readability. Invest time in them and rename freely when a better one appears.
+
+## Core rules
+
+- **Use intention-revealing names.** A name should answer why it exists, what it does, and how it's used. If it needs a comment, the name failed.
+- **Avoid disinformation.** Don't use names whose conventional meaning differs (`hp`, `accountList` when it isn't a List). Never use `l` or `O` (confused with `1`/`0`).
+- **Make meaningful distinctions.** No number series (`a1, a2`), no noise words (`Info`, `Data`, `Object`, `Variable`, `theMessage` vs `message`). Distinctions must differ in meaning, not just for the compiler.
+- **Use pronounceable names.** `generationTimestamp`, not `genymdhms`.
+- **Use searchable names.** Single letters and magic numbers can't be grep'd. Use named constants.
+- **Avoid encodings.** No Hungarian notation, no member prefixes (`m_`), no `I` prefix on interfaces (encode the impl `ShapeFactoryImp` if anything).
+- **Avoid mental mapping.** Don't make readers translate `r` → "URL without host". `i,j,k` are OK only for tiny loop scopes; never `l`.
+- **Class names = nouns** (`Customer`, `AddressParser`); avoid vague `Manager`/`Processor`/`Data`. **Method names = verbs** (`postPayment`, `deletePage`); use `get/set/is` accessor conventions.
+- **Don't be cute / don't pun.** No `eatMyShorts()` for `abort()`; don't reuse `add` for both "sum" and "insert into collection".
+- **Pick one word per concept.** Don't mix `fetch`/`retrieve`/`get` across the codebase.
+- **Solution-domain names** (CS/pattern terms like `JobQueue`, `Visitor`) for technical machinery; **problem-domain names** when no technical term fits.
+- **Add meaningful context** via enclosing class/type (`addrState` or an `Address` field), not gratuitous prefixes (`GSDAccountAddress`). Shorter is better when still clear.
+- **Match name length to scope (N5).** Short names for tiny scopes; long, precise names for large scopes / few call sites (`renamePageAndOptionallyAllReferences`).
+- **Names must describe side effects (N7).** A lazy-initializing getter should be `createOrReturnOos`, not `getOos`.
+- **Prefer enums over `static final int` (J3); don't inherit constants — use static import (J2).**
+
+## Example — intention-revealing names + domain types
+
+```java
+// BAD
+public List<int[]> getThem() {
+  List<int[]> list1 = new ArrayList<>();
+  for (int[] x : theList)
+    if (x[0] == 4) list1.add(x);
+  return list1;
+}
+
+// GOOD
+public List<Cell> getFlaggedCells() {
+  List<Cell> flaggedCells = new ArrayList<>();
+  for (Cell cell : gameBoard)
+    if (cell.isFlagged())
+      flaggedCells.add(cell);
+  return flaggedCells;
+}
+```

@@ -1,0 +1,35 @@
+---
+description: Clean Code error handling — exceptions over codes, context, no null (Ch.7)
+alwaysApply: true
+---
+
+# Clean Code: Error Handling
+
+Error handling matters, but it must not obscure logic. Treat it as a **separate concern**.
+
+- **Use exceptions, not return codes / error flags.** They separate the algorithm from error handling and can't be silently ignored.
+- **Write the `try-catch-finally` first.** Treat the `try` block like a transaction that leaves the system consistent. Drive it with tests that force the exception.
+- **Prefer unchecked (runtime) exceptions.** Checked exceptions cascade `throws` clauses up the stack, breaking encapsulation and the Open/Closed Principle.
+- **Provide context with exceptions.** Messages must convey the failed operation and intent — enough to log and diagnose.
+- **Define exception classes by the caller's needs.** Often one class per area is enough; **wrap third-party APIs** so all their failure types map to one of yours.
+- **Define the normal flow with the Special Case pattern** — don't use exceptions for expected business cases.
+- **Don't return null** — throw or return a Special Case (e.g., empty collection). Wrap null-returning third-party calls.
+- **Don't pass null** — forbid it by default; treat a null argument as a bug, not a handled case.
+
+```java
+// BAD — vendor types duplicated, code obscured by error checks
+try { port.open(); }
+catch (DeviceResponseException e) { reportPortError(e); }
+catch (ATM1212UnlockedException e) { reportPortError(e); }
+catch (GMXError e) { reportPortError(e); }
+
+// GOOD — wrapper maps all vendor errors to one caller-facing type
+try { localPort.open(); }
+catch (PortDeviceFailure e) { reportError(e); logger.log(e.getMessage(), e); }
+```
+
+```java
+// GOOD — Special Case instead of exception for a normal path
+MealExpenses expenses = expenseReportDAO.getMeals(employee.getID());
+m_total += expenses.getTotal(); // DAO returns PerDiemMealExpenses when none found
+```

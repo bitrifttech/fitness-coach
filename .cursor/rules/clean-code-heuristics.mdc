@@ -1,0 +1,62 @@
+---
+description: Clean Code general code smells & heuristics quick-reference (Ch.17 G1–G36, J1–J3)
+alwaysApply: true
+---
+
+# Clean Code: Smells & Heuristics (General)
+
+Quick checklist of code smells to avoid (Chapter 17). Topic-specific smells (Comments C, Environment E, Functions F, Names N, Tests T) live in the matching rule files.
+
+- **G1** Don't mix multiple languages in one source file.
+- **G2** Implement behavior readers reasonably expect (least surprise).
+- **G3** Test/handle boundary and corner cases; don't trust intuition.
+- **G4** Don't override safeties (failing tests, compiler warnings).
+- **G5** Eliminate duplication (DRY) — extract methods, polymorphism, Template Method/Strategy.
+- **G6** Keep each abstraction level pure — no low-level details in high-level modules.
+- **G7** Base classes must not depend on or name their derivatives.
+- **G8** Expose little at interfaces; hide data, utilities, constants.
+- **G9** Delete dead code.
+- **G10** Define variables/functions close to first use (tight vertical scope).
+- **G11** Be consistent in naming and conventions.
+- **G12** Remove clutter (unused vars, empty constructors, noise).
+- **G13** Avoid artificial coupling — don't park general items in specific classes.
+- **G14** Avoid feature envy — methods should use their own class's data; move behavior to the data it manipulates.
+- **G15** Replace selector/flag arguments with separate functions.
+- **G16** Make intent explicit — no run-ons, magic tokens, or cryptic names.
+- **G17** Put code where readers expect it (responsibility placement).
+- **G18** Prefer non-static methods unless polymorphism is truly unwanted.
+- **G19** Use explanatory variables to break up calculations.
+- **G20** Function names must reveal behavior without reading the body.
+- **G21** Understand the algorithm before calling a function "done."
+- **G22** Make logical dependencies physical (ask, don't assume — e.g. `formatter.getMaxPageSize()`).
+- **G23** Prefer polymorphism to if/else or switch/case (one switch per selection type).
+- **G24** Follow standard team conventions.
+- **G25** Replace magic numbers/strings with named constants.
+- **G26** Be precise (null checks, concurrency, currency, contracts).
+- **G27** Enforce design with structure (abstract base classes), not convention alone.
+- **G28** Encapsulate conditionals in intention-revealing functions.
+- **G29** Avoid negative conditionals.
+- **G30** Functions should do one thing.
+- **G31** Don't hide temporal couplings — make call order explicit in signatures.
+- **G32** Don't be arbitrary — structure code for a communicated reason.
+- **G33** Encapsulate boundary conditions in one place (e.g. `int nextLevel = level + 1`).
+- **G34** Functions should descend only one level of abstraction.
+- **G35** Keep configurable defaults at high levels; pass them down.
+- **G36** Avoid transitive navigation (`a.getB().getC()`) — talk only to immediate collaborators.
+
+## Java-specific (J1–J3)
+- **J1** Avoid long import lists — use package wildcards when using ≥2 classes from a package.
+- **J2** Don't inherit constants — use `import static`.
+- **J3** Prefer enums over `public static final int` constants (enums carry meaning and behavior).
+
+```java
+// G19 + G25 + G28 + G29 in practice
+final int MAX_RETRIES = 3;                 // not the magic number 3
+if (connection.shouldRetry())              // positive, encapsulated conditional
+  retry(MAX_RETRIES);
+
+// G33 — encapsulate the boundary condition once
+int nextLevel = level + 1;
+if (nextLevel < tags.length)
+  parts = new Parse(body, tags, nextLevel, offset + endTag);
+```

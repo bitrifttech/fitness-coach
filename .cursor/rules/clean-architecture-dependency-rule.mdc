@@ -1,0 +1,41 @@
+---
+description: Clean Architecture — the Dependency Rule, the concentric layers (Entities, Use Cases, Adapters, Frameworks), what data may cross boundaries, and Screaming Architecture. Apply when organizing layers and deciding where code belongs.
+alwaysApply: true
+---
+
+# Clean Architecture: The Dependency Rule & Screaming Architecture
+
+**The Dependency Rule: source-code dependencies must point only inward, toward higher-level policies.** Nothing in an inner circle may name anything in an outer circle (functions, classes, variables, data formats). Concentric layers, outer = mechanisms (low level), inner = policies (high level).
+
+Typical layers (you may have more than four; the rule always holds):
+1. **Entities** — enterprise-wide **Critical Business Rules** + Critical Business Data. The most general, highest-level, least likely to change. Usable across many applications. Pure business; no DB/UI/framework concerns.
+2. **Use Cases** — **application-specific business rules**. Orchestrate the dance of Entities to achieve the use case's goal. Don't know about UI, DB, or frameworks. Closer to inputs/outputs, so lower-level than Entities.
+3. **Interface Adapters** — controllers, presenters, views, gateways, ORMs/data mappers. Convert data between the form convenient for use cases/entities and the form convenient for external agencies. **All SQL is confined here**; nothing inward knows about the database.
+4. **Frameworks & Drivers** — DB, web framework, devices. The outermost layer; "where all the details go." Mostly glue code.
+
+## Crossing boundaries / which data crosses
+- Use **DIP + dynamic polymorphism** to make source dependencies oppose the flow of control (e.g., a use case calls an **output port** interface that the presenter implements).
+- **Only simple, isolated data structures cross boundaries** (DTOs, structs, function args, hashmaps). Pass data in the form most convenient for the **inner** circle.
+- **Never pass Entity objects or database rows inward**—that would force inner circles to know about outer circles.
+
+```text
+// BAD: use case returns DB row / Entity to the outer layer
+ReportController.show(): OrderEntity            // leaks inner detail outward
+// BAD: passing a framework row structure inward
+useCase.execute(httpRequest)                    // inner knows about the web
+
+// GOOD: plain request/response models cross the boundary
+useCase.execute(OrderRequestModel) -> OrderResponseModel   // framework-free DTOs
+```
+
+## Business Rules detail
+- **Critical Business Rules + Critical Business Data → Entity** (would exist even without the system). You don't need an OO language—just bind the data and the rules into one separate module.
+- **Use cases** describe application-specific rules (input, processing steps, output). They do NOT describe the UI ("how the system appears to the user"). It must be impossible to tell from a use case whether delivery is web/console/service.
+- **Entities know nothing of use cases**; use cases depend on entities (DIP).
+- **Request/Response models must be dependency-free.** Don't derive them from framework types (`HttpRequest`). Don't put Entity references in them (they change for different reasons—violates SRP/CCP and creates tramp data).
+- Business rules are the family jewels: the most independent and reusable code in the system.
+
+## Screaming Architecture
+- **The architecture should scream the use cases / domain, not the framework.** A new reader should see "Health Care System," not "Rails" or "Spring/Hibernate."
+- **Frameworks are tools, not ways of life.** View every framework skeptically; ask how to use it *and how to protect yourself from it*. Don't conform your architecture to a framework.
+- **Architectures are use-case driven and testable:** you should be able to unit-test all use cases with no web server, no database, and no framework in place. Entities are plain objects; use cases coordinate them.

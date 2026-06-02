@@ -1,0 +1,43 @@
+---
+description: Clean Code comment principles — prefer expressive code over comments; which comments are good vs bad (Ch.4 + heuristics C1–C5)
+alwaysApply: true
+---
+
+# Clean Code: Comments
+
+**A comment is a failure to express intent in code.** The only truly good comment is the one you found a way not to write. Comments drift out of date and lie; code is the only reliable truth.
+
+## Prefer code over comments
+
+```java
+// BAD
+// Check to see if the employee is eligible for full benefits
+if ((employee.flags & HOURLY_FLAG) && (employee.age > 65))
+
+// GOOD
+if (employee.isEligibleForFullBenefits())
+```
+
+## Good comments (use sparingly, keep accurate)
+- **Legal** headers (keep short; link to license).
+- **Informative** facts a name can't convey (prefer renaming first).
+- **Explanation of intent** — the "why" behind a non-obvious decision.
+- **Clarification** of un-renameable external API values (`// a < b`) — verify carefully.
+- **Warning of consequences** (`// not thread safe`, `// don't run unless you have time to kill`).
+- **TODO** for genuinely deferred work (review/remove regularly).
+- **Amplification** of a line whose importance isn't obvious.
+- **Javadoc for public APIs** (apply the same discipline).
+
+## Bad comments (delete / avoid)
+- Mumbling, redundant restatements (`i++; // increment i`), misleading wording, mandated comments on everything.
+- Journal/change-log comments, attributions/bylines, position-marker banners, closing-brace comments — SCM and small functions replace these.
+- **Commented-out code (C5): delete on sight** — SCM remembers it.
+- HTML in comments, nonlocal info, too much info, inobvious connections, noise Javadoc on obvious fields.
+- Function-header comments on small functions; Javadoc on non-public internals.
+
+## Heuristics
+- **C1** No metadata/history/authors in comments (use SCM/tracker).
+- **C2** Update or delete obsolete comments immediately.
+- **C3** No redundant comments.
+- **C4** If worth writing, write it well — brief, correct grammar, no rambling.
+- **C5** Delete commented-out code.
