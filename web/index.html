@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Fitness Coach — Multi-Agent</title>
+<style>
+  :root {
+    --bg: #0f1115; --panel: #171a21; --panel-2: #1e222b; --border: #2a2f3a;
+    --text: #e6e9ef; --muted: #8b93a7; --accent: #6ee7b7; --accent-2: #60a5fa;
+    --coach: #60a5fa; --gen: #6ee7b7; --log: #fbbf24; --clarify: #f472b6;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+         background: var(--bg); color: var(--text); height: 100vh; display: flex; }
+  aside { width: 280px; background: var(--panel); border-right: 1px solid var(--border);
+          padding: 18px; display: flex; flex-direction: column; gap: 18px; overflow-y: auto; }
+  aside h1 { font-size: 16px; margin: 0; }
+  aside h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 8px; }
+  .examples button { display: block; width: 100%; text-align: left; background: var(--panel-2);
+          color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px;
+          margin-bottom: 6px; cursor: pointer; font-size: 13px; }
+  .examples button:hover { border-color: var(--accent-2); }
+  .field { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+  .field input[type=range] { width: 100%; }
+  #reset { background: transparent; color: var(--clarify); border: 1px solid var(--clarify);
+           border-radius: 8px; padding: 8px; cursor: pointer; }
+  #logs { font-size: 13px; }
+  #logs table { width: 100%; border-collapse: collapse; }
+  #logs td { padding: 3px 4px; border-bottom: 1px solid var(--border); }
+  main { flex: 1; display: flex; flex-direction: column; }
+  #chat { flex: 1; overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 16px; }
+  .msg { max-width: 760px; }
+  .msg.user { align-self: flex-end; background: var(--accent-2); color: #06223f;
+              padding: 10px 14px; border-radius: 14px 14px 2px 14px; }
+  .msg.assistant { align-self: flex-start; width: 100%; }
+  .bubble { background: var(--panel); border: 1px solid var(--border); border-radius: 14px 14px 14px 2px;
+            padding: 12px 16px; white-space: pre-wrap; }
+  .route-tag { display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 8px;
+               border-radius: 999px; margin-bottom: 8px; }
+  .route-COACH { background: rgba(96,165,250,.15); color: var(--coach); }
+  .route-WORKOUT_GENERATE { background: rgba(110,231,183,.15); color: var(--gen); }
+  .route-WORKOUT_LOG { background: rgba(251,191,36,.15); color: var(--log); }
+  .route-CLARIFY { background: rgba(244,114,182,.15); color: var(--clarify); }
+  .card { margin-top: 10px; background: var(--panel-2); border: 1px solid var(--border);
+          border-radius: 10px; padding: 12px; }
+  .card h3 { margin: 0 0 4px; font-size: 14px; }
+  .section-title { font-size: 12px; text-transform: uppercase; color: var(--muted); margin: 10px 0 4px; }
+  .ex-row { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px dashed var(--border); }
+  .ex-row .meta { color: var(--muted); }
+  details.trace { margin-top: 8px; font-size: 13px; }
+  details.trace summary { cursor: pointer; color: var(--muted); }
+  .trace-event { padding: 4px 8px; border-left: 2px solid var(--border); margin: 4px 0; }
+  .trace-event.route { border-color: var(--accent-2); }
+  .trace-event.tool_call { border-color: var(--accent); }
+  .trace-event.recovery { border-color: var(--log); color: var(--log); }
+  .trace-event.clarify { border-color: var(--clarify); color: var(--clarify); }
+  form { display: flex; gap: 10px; padding: 16px 24px; border-top: 1px solid var(--border); background: var(--panel); }
+  form input[type=text] { flex: 1; background: var(--panel-2); border: 1px solid var(--border);
+          color: var(--text); border-radius: 10px; padding: 12px 14px; font-size: 15px; }
+  form button { background: var(--accent); color: #06231a; border: none; border-radius: 10px;
+          padding: 0 20px; font-weight: 600; cursor: pointer; }
+  form button:disabled { opacity: .5; cursor: default; }
+  .muted { color: var(--muted); }
+</style>
+</head>
+<body>
+<aside>
+  <div><h1>🏋️ Fitness Coach</h1><div class="muted" style="font-size:12px">LangGraph multi-agent</div></div>
+
+  <div class="examples">
+    <h2>Try an example</h2>
+    <button data-q="What muscles does a deadlift work?">Coach: deadlift muscles</button>
+    <button data-q="Build me a 30 min upper body session with dumbbells">Generate: upper body</button>
+    <button data-q="I just did 3x10 bench press at 185 lbs">Log: bench press</button>
+    <button data-q="I did a workout yesterday, can you adjust it?">Ambiguous #1</button>
+    <button data-q="Bench press">Ambiguous #2</button>
+    <button data-q="Build me a leg workout using a barbell snatch machine on mars">Resilience: no results</button>
+  </div>
+
+  <div class="field">
+    <label>Confidence threshold: <span id="thVal">0.60</span></label>
+    <input type="range" id="threshold" min="0" max="1" step="0.05" value="0.6" disabled />
+    <span style="font-size:11px">(server-side; shown for context)</span>
+  </div>
+
+  <div id="logs"><h2>Session Log</h2><div class="muted" id="logsBody">No workouts logged yet.</div></div>
+
+  <button id="reset">New conversation</button>
+</aside>
+
+<main>
+  <div id="chat"></div>
+  <form id="composer">
+    <input type="text" id="input" placeholder="Ask a question, generate a workout, or log a set…" autocomplete="off" />
+    <button type="submit" id="send">Send</button>
+  </form>
+</main>
+
+<script>
+let threadId = null;
+const chat = document.getElementById('chat');
+const form = document.getElementById('composer');
+const input = document.getElementById('input');
+const send = document.getElementById('send');
+const logsBody = document.getElementById('logsBody');
+
+function el(tag, cls, html) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (html !== undefined) e.innerHTML = html;
+  return e;
+}
+
+function addUser(text) {
+  const m = el('div', 'msg user', escapeHtml(text));
+  chat.appendChild(m);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+function escapeHtml(s) {
+  return (s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function renderWorkout(w) {
+  if (!w) return '';
+  let html = `<div class="card"><h3>${escapeHtml(w.title)}</h3>`;
+  html += `<div class="muted">${w.duration_minutes} min</div>`;
+  for (const sec of (w.sections || [])) {
+    html += `<div class="section-title">${sec.name}</div>`;
+    for (const it of sec.items) {
+      const scheme = it.reps ? `${it.sets}×${it.reps}` : (it.duration_seconds ? `${it.sets}×${it.duration_seconds}s` : `${it.sets} sets`);
+      html += `<div class="ex-row"><span>${escapeHtml(it.name)}</span><span class="meta">${scheme} · ${it.rest_seconds}s rest</span></div>`;
+    }
+  }
+  if (w.notes) html += `<div class="muted" style="margin-top:8px">${escapeHtml(w.notes)}</div>`;
+  return html + '</div>';
+}
+
+function renderLog(entries) {
+  if (!entries || !entries.length) return '';
+  let html = `<div class="card"><h3>Logged</h3>`;
+  for (const e of entries) {
+    const scheme = (e.sets && e.reps) ? `${e.sets}×${e.reps}` : '';
+    const wt = e.weight ? `${e.weight}${e.weight_unit || ''}` : '';
+    const match = e.matched_name ? `${escapeHtml(e.matched_name)} <span class="muted">(${Math.round(e.match_score)})</span>` : `<span class="muted">${escapeHtml(e.raw_name)} — no match</span>`;
+    html += `<div class="ex-row"><span>${match}</span><span class="meta">${scheme} ${wt}</span></div>`;
+  }
+  return html + '</div>';
+}
+
+function renderTrace(trace) {
+  if (!trace || !trace.length) return '';
+  let inner = '';
+  for (const ev of trace) {
+    inner += `<div class="trace-event ${ev.kind}">${escapeHtml(ev.label)}</div>`;
+  }
+  return `<details class="trace"><summary>Show reasoning (${trace.length} steps)</summary>${inner}</details>`;
+}
+
+function addAssistant(data) {
+  const wrap = el('div', 'msg assistant');
+  const route = data.route || 'COACH';
+  const conf = data.confidence != null ? ` · ${Math.round(data.confidence * 100)}%` : '';
+  let html = `<span class="route-tag route-${route}">${route}${conf}</span>`;
+  html += `<div class="bubble">${escapeHtml(data.reply)}</div>`;
+  html += renderWorkout(data.workout);
+  html += renderLog(data.log_entries);
+  html += renderTrace(data.trace);
+  wrap.innerHTML = html;
+  chat.appendChild(wrap);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+async function refreshLogs() {
+  if (!threadId) { logsBody.innerHTML = 'No workouts logged yet.'; return; }
+  const r = await fetch(`/api/session/${threadId}/logs`);
+  const d = await r.json();
+  const entries = d.log_entries || [];
+  if (!entries.length) { logsBody.innerHTML = 'No workouts logged yet.'; return; }
+  let html = '<table>';
+  for (const e of entries) {
+    const name = e.matched_name || e.raw_name;
+    const scheme = (e.sets && e.reps) ? `${e.sets}×${e.reps}` : '';
+    const wt = e.weight ? `${e.weight}${e.weight_unit || ''}` : '';
+    html += `<tr><td>${escapeHtml(name)}</td><td class="muted">${scheme} ${wt}</td></tr>`;
+  }
+  logsBody.innerHTML = html + '</table>';
+}
+
+async function sendMessage(text) {
+  addUser(text);
+  send.disabled = true; input.value = '';
+  try {
+    const r = await fetch('/api/chat', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ message: text, thread_id: threadId }),
+    });
+    const data = await r.json();
+    threadId = data.thread_id;
+    addAssistant(data);
+    refreshLogs();
+  } catch (e) {
+    addAssistant({ reply: 'Request failed: ' + e, route: 'COACH', trace: [] });
+  } finally {
+    send.disabled = false; input.focus();
+  }
+}
+
+form.addEventListener('submit', e => {
+  e.preventDefault();
+  const text = input.value.trim();
+  if (text) sendMessage(text);
+});
+
+document.querySelectorAll('.examples button').forEach(b =>
+  b.addEventListener('click', () => sendMessage(b.dataset.q)));
+
+document.getElementById('reset').addEventListener('click', () => {
+  threadId = null; chat.innerHTML = ''; refreshLogs(); input.focus();
+});
+</script>
+</body>
+</html>

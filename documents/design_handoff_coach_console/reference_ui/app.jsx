@@ -1,0 +1,315 @@
+/* app.jsx — wires the console together. */
+const { useState, useEffect, useRef, useCallback } = React;
+
+const MODELS = [
+  "anthropic/claude-3.5-sonnet",
+  "openai/gpt-4o",
+  "openai/gpt-4o-mini",
+  "google/gemini-1.5-pro",
+  "meta-llama/llama-3.1-70b",
+];
+
+const EXAMPLES = [
+  { text: "What muscles does a deadlift work?", tag: "COACH", color: "var(--r-coach)" },
+  { text: "Build me a 30 min upper body session with dumbbells", tag: "GENERATE", color: "var(--r-generate)" },
+  { text: "I just did 3x10 bench press at 185 lbs", tag: "LOG", color: "var(--r-log)" },
+  { text: "I did a workout yesterday, can you adjust it?", tag: "AMBIGUOUS", color: "var(--r-clarify)" },
+  { text: "Bench press", tag: "AMBIGUOUS", color: "var(--r-clarify)" },
+  { text: "Build me a back workout using a rowing machine", tag: "RESILIENCE", color: "var(--r-recover)" },
+];
+
+/* accent presets — each carries its derived soft/ring/press shades */
+const ACCENTS = {
+  "#5b5bd6": { soft: "#ecedfb", ring: "rgba(91,91,214,.28)", press: "#4a4ab8" },
+  "#0d9488": { soft: "#dcf3f0", ring: "rgba(13,148,136,.26)", press: "#0b7a70" },
+  "#e2603b": { soft: "#fdeae3", ring: "rgba(226,96,59,.26)", press: "#c44f2e" },
+  "#2f6fed": { soft: "#e4edfe", ring: "rgba(47,111,237,.26)", press: "#245ccc" },
+};
+
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "accent": "#5b5bd6",
+  "density": "comfortable",
+  "theme": "light",
+  "routeColors": true,
+  "autoOpenTrace": false
+}/*EDITMODE-END*/;
+
+let TURN_ID = 0;
+function nid() { return "t" + (++TURN_ID); }
+
+function seedTranscript() {
+  const mk = (role, payload) => Object.assign({ id: nid(), role }, payload);
+  const coach = window.FitEngine.route("What muscles does a deadlift work?", 0.6);
+  const gen = window.FitEngine.route("Build me a 30 min upper body session with dumbbells", 0.6);
+  const log = window.FitEngine.route("I just did 3x10 bench press at 185 lbs", 0.6);
+  return [
+    mk("user", { text: "What muscles does a deadlift work?" }),
+    mk("assistant", { turn: coach }),
+    mk("user", { text: "Build me a 30 min upper body session with dumbbells" }),
+    mk("assistant", { turn: gen }),
+    mk("user", { text: "I just did 3x10 bench press at 185 lbs" }),
+    mk("assistant", { turn: log }),
+  ];
+}
+
+function deriveSessionLog(messages) {
+  const out = [];
+  messages.forEach((m) => {
+    if (m.role === "assistant" && m.turn && m.turn.content && m.turn.content.type === "log") {
+      m.turn.content.entries.forEach((e) => {
+        const ex = window.FitEngine.byId[e.matched_id];
+        out.push({ name: ex ? ex.name : e.matched_id, sr: e.sets + "×" + e.reps, w: e.weight + e.unit });
+      });
+    }
+  });
+  return out;
+}
+
+function newThreadId() {
+  return "thr_" + Math.random().toString(36).slice(2, 8);
+}
+
+function App() {
+  const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+  const [model, setModel] = useState(MODELS[0]);
+  const [threshold, setThreshold] = useState(0.6);
+  const [messages, setMessages] = useState(seedTranscript);
+  const [thread, setThread] = useState(newThreadId);
+  const [draft, setDraft] = useState("");
+  const [thinking, setThinking] = useState(null); // {route} while "typing"
+  const scrollRef = useRef(null);
+  const taRef = useRef(null);
+  const flashIdx = useRef(-1);
+  const firstScroll = useRef(true);
+
+  /* apply tweaks to <html> */
+  useEffect(() => {
+    const html = document.documentElement;
+    html.setAttribute("data-theme", t.theme);
+    html.setAttribute("data-density", t.density);
+    html.setAttribute("data-routecolors", t.routeColors ? "on" : "off");
+    const a = ACCENTS[t.accent] || ACCENTS["#5b5bd6"];
+    html.style.setProperty("--accent", t.accent);
+    html.style.setProperty("--accent-soft", a.soft);
+    html.style.setProperty("--accent-ring", a.ring);
+    html.style.setProperty("--accent-press", a.press);
+  }, [t.theme, t.density, t.routeColors, t.accent]);
+
+  /* autoscroll on new content */
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    if (firstScroll.current) {
+      firstScroll.current = false;
+      el.scrollTop = el.scrollHeight;
+      return;
+    }
+    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 260;
+    if (atBottom || thinking) {
+      el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+    }
+  }, [messages.length, thinking]);
+
+  const sessionLog = deriveSessionLog(messages);
+
+  const send = useCallback((rawText) => {
+    const text = (rawText != null ? rawText : draft).trim();
+    if (!text || thinking) return;
+    setDraft("");
+    if (taRef.current) taRef.current.style.height = "auto";
+
+    const userMsg = { id: nid(), role: "user", text };
+    setMessages((prev) => [...prev, userMsg]);
+
+    // peek the likely route so the typing indicator is colored correctly
+    const preview = window.FitEngine.route(text, threshold);
+    setThinking({ route: preview.route });
+
+    const delay = 560 + Math.random() * 480;
+    setTimeout(() => {
+      const turn = window.FitEngine.route(text, threshold);
+      setThinking(null);
+      if (turn.content.type === "log") flashIdx.current = sessionLog.length;
+      setMessages((prev) => [...prev, { id: nid(), role: "assistant", turn }]);
+    }, delay);
+  }, [draft, thinking, threshold, sessionLog.length]);
+
+  const onPickClarify = useCallback((option) => {
+    // map a clarify-button choice to a concrete follow-up prompt
+    const map = {
+      "Log what I did": "I did 3x10 bench press at 185 lbs",
+      "Build an adjusted version": "Build me a 30 min upper body session with dumbbells",
+      "Just coaching advice": "What muscles does a deadlift work?",
+      "Tell me about it": "What muscles does a bench press work?",
+      "Log a bench set": "I just did 3x10 bench press at 185 lbs",
+      "Add it to a workout": "Build me a 30 min upper body session with dumbbells",
+      "Build a workout": "Build me a 30 min upper body session with dumbbells",
+      "Log a set": "I just did 3x10 bench press at 185 lbs",
+      "Answer as coaching": "What muscles does a deadlift work?",
+    };
+    send(map[option] || option);
+  }, [send]);
+
+  const resetThread = () => {
+    setMessages([]);
+    setThread(newThreadId());
+    setThinking(null);
+  };
+
+  const onKeyDown = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
+  };
+  const onInput = (e) => {
+    setDraft(e.target.value);
+    e.target.style.height = "auto";
+    e.target.style.height = Math.min(e.target.scrollHeight, 140) + "px";
+  };
+
+  return (
+    <div className="app">
+      {/* ============ SIDEBAR ============ */}
+      <aside className="sidebar">
+        <div className="brand">
+          <div className="brand-mark">{Icons.dumbbell}</div>
+          <div>
+            <div className="brand-name">Coach Console</div>
+            <div className="brand-sub">langgraph · hub + 3 agents</div>
+          </div>
+        </div>
+        <div className="sidebar-scroll">
+          <div className="side-group">
+            <div className="side-label">{Icons.gear}<span style={{ marginRight: "auto", marginLeft: 6 }}>Configuration</span></div>
+            <div className="field-row">
+              <span className="field-name">Model</span>
+              <select className="select" value={model} onChange={(e) => setModel(e.target.value)}>
+                {MODELS.map((m) => <option key={m} value={m}>{m}</option>)}
+              </select>
+            </div>
+            <div className="field-row">
+              <div className="thr-head">
+                <span className="field-name">Confidence threshold</span>
+                <span className="thr-val">{threshold.toFixed(2)}</span>
+              </div>
+              <input className="slider" type="range" min="0" max="1" step="0.01"
+                value={threshold} onChange={(e) => setThreshold(parseFloat(e.target.value))} />
+              <span className="thr-hint">Routes scoring below this fall back to a CLARIFY question. Drag up to watch it trigger.</span>
+            </div>
+            <button className="btn btn-block" onClick={resetThread} style={{ marginTop: 2 }}>
+              {Icons.reset} New conversation
+            </button>
+          </div>
+
+          <div className="side-group">
+            <div className="side-label"><span>Example prompts</span></div>
+            <div className="examples">
+              {EXAMPLES.map((ex) => (
+                <button key={ex.text} className="example" style={{ "--ex-color": ex.color }} onClick={() => send(ex.text)}>
+                  <span className="dot" />
+                  <span className="ex-text">{ex.text}</span>
+                  <span className="ex-tag">{ex.tag}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="side-group">
+            <div className="side-label">{Icons.layers}<span style={{ marginRight: "auto", marginLeft: 6 }}>Session log</span><span style={{ color: "var(--text-3)" }}>{sessionLog.length}</span></div>
+            {sessionLog.length === 0 ? (
+              <div className="log-empty">No sets logged yet. Try “I did 3×10 bench press at 185 lbs”.</div>
+            ) : (
+              <div className="log-table">
+                {sessionLog.map((r, i) => (
+                  <div className={"log-row" + (i === flashIdx.current ? " log-flash" : "")} key={i}>
+                    <span className="lx-name">{r.name}</span>
+                    <span className="lx-sr">{r.sr}</span>
+                    <span className="lx-w">{r.w}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </aside>
+
+      {/* ============ MAIN ============ */}
+      <main className="main">
+        <div className="topbar">
+          <div className="topbar-title">
+            {Icons.route}
+            <span>Fitness Coaching · Multi-Agent Hub</span>
+            <span className="thread-pill">{thread}</span>
+          </div>
+          <div className="topbar-right">
+            <div className="legend">
+              {["COACH", "WORKOUT_GENERATE", "WORKOUT_LOG", "CLARIFY"].map((r) => (
+                <span className="legend-item" key={r}>
+                  <span className="dot" style={{ background: ROUTE_META[r].color }} />
+                  {ROUTE_META[r].label.replace("WORKOUT_", "")}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="chat-scroll" ref={scrollRef}>
+          <div className="chat-inner">
+            {messages.length === 0 && (
+              <div className="empty-state">
+                <div className="empty-icon">{Icons.dumbbell}</div>
+                <div className="empty-title">Fresh thread · {thread}</div>
+                <div className="empty-sub">Ask a coaching question, request a workout, or log a set. The hub router will pick an agent — expand “Show reasoning” on any reply to see the route, confidence, and tool calls.</div>
+              </div>
+            )}
+            {messages.map((m, i) => (
+              m.role === "user" ? (
+                <div className="turn turn-user" key={m.id} data-screen-label={"turn-" + i}>
+                  <div className="user-bubble">{m.text}</div>
+                </div>
+              ) : (
+                <div className="turn turn-assistant" key={m.id} style={routeVars(m.turn.route)}>
+                  <div className="assistant-head">
+                    <span className="agent-avatar">{ROUTE_META[m.turn.route].icon}</span>
+                    <span className="route-badge">{ROUTE_META[m.turn.route].agent}</span>
+                    <span className="conf-chip">conf <b>{m.turn.confidence.toFixed(2)}</b></span>
+                  </div>
+                  <AssistantCard turn={m.turn} onPick={onPickClarify} />
+                  <Trace turn={m.turn} defaultOpen={t.autoOpenTrace} />
+                </div>
+              )
+            ))}
+            {thinking && (
+              <div className="turn turn-assistant" style={routeVars(thinking.route)}>
+                <div className="typing">
+                  <span className="dots"><i /><i /><i /></span>
+                  <span className="typing-label">routing → {ROUTE_META[thinking.route].agent.toLowerCase()}…</span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="composer-wrap">
+          <div className="composer">
+            <textarea ref={taRef} rows="1" value={draft} placeholder="Ask, generate, or log a set…  (Enter to send)"
+              onChange={onInput} onKeyDown={onKeyDown} />
+            <button className="send-btn" disabled={!draft.trim() || !!thinking} onClick={() => send()}>{Icons.send}</button>
+          </div>
+          <div className="composer-hint">{model} · threshold {threshold.toFixed(2)} · mock — responses are scripted, no LLM call</div>
+        </div>
+      </main>
+
+      {/* ============ TWEAKS ============ */}
+      <TweaksPanel>
+        <TweakSection label="Appearance" />
+        <TweakRadio label="Theme" value={t.theme} options={["light", "dark"]} onChange={(v) => setTweak("theme", v)} />
+        <TweakColor label="Accent" value={t.accent} options={Object.keys(ACCENTS)} onChange={(v) => setTweak("accent", v)} />
+        <TweakRadio label="Density" value={t.density} options={["compact", "comfortable"]} onChange={(v) => setTweak("density", v)} />
+        <TweakSection label="Behavior" />
+        <TweakToggle label="Color-code routes" value={t.routeColors} onChange={(v) => setTweak("routeColors", v)} />
+        <TweakToggle label="Auto-open reasoning" value={t.autoOpenTrace} onChange={(v) => setTweak("autoOpenTrace", v)} />
+      </TweaksPanel>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
