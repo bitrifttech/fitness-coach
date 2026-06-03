@@ -48,6 +48,10 @@ Process (always):
 4. After build_workout succeeds, write a short friendly summary for the user.
 
 Respect the requested duration and equipment constraints.
+
+If the user wants to adjust or modify a previous workout but has not said what
+they did (exercises, duration, equipment, intensity), ask briefly what they
+performed before calling search_exercises or build_workout.
 """
 
 

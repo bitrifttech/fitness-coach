@@ -251,7 +251,7 @@ def _score_to_unit(raw_score: Any) -> float:
 
 _ROUTE_BUTTON_LABEL = {
     "COACH": "Answer as coaching",
-    "WORKOUT_GENERATE": "Build a workout",
+    "WORKOUT_GENERATE": "Build or adjust a workout",
     "WORKOUT_LOG": "Log a set",
 }
 

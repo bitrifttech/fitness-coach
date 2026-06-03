@@ -10,7 +10,12 @@ determinism).
 
 from unittest.mock import MagicMock, patch
 
-from fitness_coach.router import RoutingDecision, route_gate, router_node
+from fitness_coach.router import (
+    RoutingDecision,
+    log_route_is_adjust_request,
+    route_gate,
+    router_node,
+)
 
 
 def test_high_confidence_routes_to_chosen_route():
@@ -28,6 +33,44 @@ def test_threshold_boundary_is_inclusive_above():
     # Exactly at the 0.6 threshold should NOT clarify (>= passes).
     assert route_gate({"route": "COACH", "confidence": 0.6}) == "COACH"
     assert route_gate({"route": "COACH", "confidence": 0.59}) == "clarify"
+
+
+def test_adjust_request_is_not_workout_log():
+    text = "I did a workout yesterday, can you adjust it?"
+    state = {
+        "route": "WORKOUT_LOG",
+        "confidence": 0.92,
+        "messages": [("user", text)],
+    }
+    assert log_route_is_adjust_request(state)
+    assert route_gate(state) == "clarify"
+
+
+def test_concrete_log_is_not_adjust_misroute():
+    text = "I just did 3x10 bench press at 185 lbs"
+    state = {"route": "WORKOUT_LOG", "confidence": 0.92, "messages": [("user", text)]}
+    assert not log_route_is_adjust_request(state)
+    assert route_gate(state) == "WORKOUT_LOG"
+
+
+def test_router_corrects_log_misroute_on_adjust():
+    decision = RoutingDecision(
+        route="WORKOUT_LOG",
+        confidence=0.88,
+        rationale="mentioned past workout",
+        clarify_options=[],
+    )
+    fake_model = MagicMock()
+    fake_model.with_structured_output.return_value.invoke.return_value = decision
+
+    with patch("fitness_coach.router.get_chat_model", return_value=fake_model):
+        out = router_node(
+            {"messages": [("user", "I did a workout yesterday, can you adjust it?")]}
+        )
+
+    assert out["route"] == "WORKOUT_GENERATE"
+    assert out["confidence"] <= 0.45
+    assert "WORKOUT_LOG" not in out["clarify_options"]
 
 
 def test_router_node_emits_decision_and_trace():
