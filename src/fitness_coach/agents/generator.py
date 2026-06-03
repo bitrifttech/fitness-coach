@@ -59,6 +59,7 @@ Process (always):
 4. Once you have suitable exercises, call build_workout with a warmup, main
    block, and cooldown. Use ONLY exercise ids returned by search_exercises.
    Pass the same avoid_joints to build_workout when injury avoidance applies.
+   Single-side (unilateral) exercises are auto-expanded to both sides in the card.
 5. After build_workout succeeds, write a short friendly summary for the user in Markdown
    (use **bold** for emphasis and bullet lists when helpful).
 

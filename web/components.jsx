@@ -246,12 +246,24 @@ function CoachCard({ content }) {
   );
 }
 
+function sideTag(sideLabel) {
+  if (!sideLabel) return null;
+  const s = String(sideLabel).toLowerCase();
+  if (s.includes("left")) return "LEFT";
+  if (s.includes("right")) return "RIGHT";
+  return null;
+}
+
 function ExRow({ item }) {
   const ex = EX[item.id] || { name: item.id, equipment_required: [] };
+  const tag = sideTag(item.side_label);
   return (
     <div className="ex-row">
       <div className="ex-main">
-        <div className="ex-name">{ex.name}</div>
+        <div className="ex-name">
+          {ex.name}
+          {tag && <span className="side-badge" title="bilateral pairing">{tag}</span>}
+        </div>
         <div className="ex-sub">
           <span className="mono">{(ex.equipment_required || []).join(" · ")}</span>
           {ex.priority_tier && <span>tier {ex.priority_tier}</span>}

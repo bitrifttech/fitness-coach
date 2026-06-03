@@ -153,7 +153,7 @@ def build_workout(
                 joint_conflicts.append(ex["name"])
                 continue
             base = _base_item(item, ex)
-            built.append(base)
+            built.extend(exercises.expand_bilateral(base, ex))
         return built, bad, joint_conflicts
 
     sections = []

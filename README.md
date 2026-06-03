@@ -129,6 +129,7 @@ and session log history (`test_session_log.py`).
 | Streaming | `POST /api/chat/stream` (SSE); console uses `FitEngine.routeStream` with incremental node updates |
 | Multi-turn memory | `MemorySaver` + `thread_id`; `log_history` reducer accumulates logged sets across turns |
 | Injury avoidance | `avoid_joints` on `search_exercises` / `build_workout`; joint chips on workout cards |
+| Bilateral pairing | `expand_bilateral` in `build_workout` mirrors unilateral exercises; **LEFT** / **RIGHT** tags on workout rows |
 | Observability | LangSmith tracing via `LANGCHAIN_TRACING_V2` + `LANGSMITH_API_KEY` — see below |
 
 ## Observability (LangSmith)

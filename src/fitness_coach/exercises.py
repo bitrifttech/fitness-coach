@@ -120,6 +120,43 @@ def joints_for_exercise_ids(exercise_ids: list[str]) -> set[str]:
     return joints
 
 
+_SIDE_OPPOSITE = {
+    "left_arm": "right_arm",
+    "right_arm": "left_arm",
+    "left_side": "right_side",
+    "right_side": "left_side",
+    "left_leg": "right_leg",
+    "right_leg": "left_leg",
+}
+
+
+def opposite_side(side: Optional[str]) -> Optional[str]:
+    if not side:
+        return None
+    return _SIDE_OPPOSITE.get(side.lower(), f"other_{side}")
+
+
+def is_unilateral(exercise: dict[str, Any]) -> bool:
+    """True when the exercise targets one side and should be mirrored."""
+    if exercise.get("bilateral_pair_id") and exercise.get("side"):
+        return True
+    return exercise.get("is_bilateral") is False and bool(exercise.get("side"))
+
+
+def expand_bilateral(item: dict[str, Any], exercise: dict[str, Any]) -> list[dict[str, Any]]:
+    """Return one or two workout rows; unilateral exercises get a mirror row for the other side."""
+    if not is_unilateral(exercise):
+        return [item]
+    side = exercise.get("side")
+    primary = {**item, "side_label": side, "paired": False}
+    mirror = {
+        **item,
+        "side_label": opposite_side(side),
+        "paired": True,
+    }
+    return [primary, mirror]
+
+
 @lru_cache(maxsize=1)
 def vocabulary() -> dict[str, list[str]]:
     """Distinct facet values present in the dataset, for grounding the LLM."""
