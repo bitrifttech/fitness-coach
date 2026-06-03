@@ -17,7 +17,13 @@ from langgraph.graph import END, START, StateGraph
 from .agents.coach import build_coach_graph
 from .agents.generator import build_generator_graph
 from .agents.logger import build_logger_graph
-from .router import adjust_request_needs_clarify, route_gate, router_node
+from .router import (
+    adjust_request_needs_clarify,
+    bare_phrase_needs_clarify,
+    route_gate,
+    router_node,
+    _last_user_text,
+)
 from .state import HubState
 
 _ROUTE_LABELS = {
@@ -41,6 +47,12 @@ def _clarify(state: HubState) -> dict:
         msg = (
             "Happy to adjust your workout — tell me what you did (exercises, duration, "
             "equipment, how it felt), or pick an option below."
+        )
+    elif bare_phrase_needs_clarify(state):
+        phrase = _last_user_text(state).strip() or "that"
+        msg = (
+            f'"{phrase}" could mean a few different things. Did you want coaching, '
+            f"a new workout, or to log a set? Pick an option below."
         )
     else:
         msg = (

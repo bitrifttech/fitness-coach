@@ -225,10 +225,11 @@ function JointsLoaded({ joints, style }) {
 }
 
 function CoachCard({ content }) {
+  const html = window.renderMarkdown ? window.renderMarkdown(content.prose) : content.prose;
   return (
     <div className="card card-accent" style={routeVars("COACH")}>
       <div className="coach-body">
-        <p className="coach-prose">{content.prose}</p>
+        <div className="coach-prose" dangerouslySetInnerHTML={{ __html: html }} />
         <JointsLoaded joints={content.joints} />
         {content.refs && content.refs.length > 0 && (
           <>

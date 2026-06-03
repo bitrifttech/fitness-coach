@@ -13,6 +13,7 @@ from unittest.mock import MagicMock, patch
 from fitness_coach.router import (
     RoutingDecision,
     adjust_request_needs_clarify,
+    bare_phrase_needs_clarify,
     log_route_is_adjust_request,
     route_gate,
     router_node,
@@ -74,6 +75,40 @@ def test_adjust_with_spec_does_not_force_clarify():
     }
     assert not adjust_request_needs_clarify(state)
     assert route_gate(state) == "WORKOUT_GENERATE"
+
+
+def test_adjust_yesterday_clarifies_even_with_prior_workout():
+    text = "I did a workout yesterday, can you adjust it?"
+    prior = {"title": "Upper Body", "sections": []}
+    state = {
+        "route": "WORKOUT_GENERATE",
+        "confidence": 0.92,
+        "messages": [("user", text)],
+        "workout": prior,
+    }
+    assert adjust_request_needs_clarify(state)
+    assert route_gate(state) == "clarify"
+
+
+def test_make_it_easier_can_use_in_thread_workout():
+    state = {
+        "route": "WORKOUT_GENERATE",
+        "confidence": 0.92,
+        "messages": [("user", "Can you make it easier?")],
+        "workout": {"title": "Leg Day", "sections": []},
+    }
+    assert not adjust_request_needs_clarify(state)
+
+
+def test_bench_press_clarifies_despite_prior_workout():
+    state = {
+        "route": "WORKOUT_GENERATE",
+        "confidence": 0.92,
+        "messages": [("user", "Bench press")],
+        "workout": {"title": "Upper Body", "sections": []},
+    }
+    assert bare_phrase_needs_clarify(state)
+    assert route_gate(state) == "clarify"
 
 
 def test_router_corrects_high_confidence_adjust_without_spec():

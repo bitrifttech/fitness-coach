@@ -17,6 +17,23 @@ def test_search_with_absent_equipment_returns_empty_not_crash():
     )
     assert out["count"] == 0
     assert out["results"] == []  # recoverable signal, not an exception
+    assert out["unmatched_equipment"] == ["barbell snatch machine on mars"]
+
+
+def test_rowing_machine_not_in_library():
+    out = search_exercises.invoke(
+        {"equipment": ["rowing machine"], "muscle_groups": ["lats", "upper back"]}
+    )
+    assert out["count"] == 0
+    assert "rowing machine" in out["unmatched_equipment"]
+
+
+def test_check_equipment_terms_accepts_dumbbell_plural():
+    from fitness_coach.exercises import check_equipment_terms
+
+    out = check_equipment_terms(["dumbbells"])
+    assert not out["unmatched"]
+    assert out["matched_vocab"]
 
 
 def test_search_finds_dumbbell_chest_despite_plural_phrasing():

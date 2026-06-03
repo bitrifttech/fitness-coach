@@ -61,6 +61,24 @@ def _joints_conflict(exercise: dict[str, Any], avoid_joints: list[str]) -> bool:
     return bool(avoid & loaded)
 
 
+def check_equipment_terms(terms: Optional[list[str]]) -> dict[str, list[str]]:
+    """Split requested equipment into library matches vs unknown terms."""
+    if not terms:
+        return {"unmatched": [], "matched_vocab": []}
+    vocab = vocabulary()["equipment"]
+    unmatched: list[str] = []
+    matched_vocab: list[str] = []
+    for term in terms:
+        if _matches_any([term], vocab):
+            for item in vocab:
+                n = term.lower().strip().rstrip("s")
+                if n and n in item.lower() and item not in matched_vocab:
+                    matched_vocab.append(item)
+        else:
+            unmatched.append(term)
+    return {"unmatched": unmatched, "matched_vocab": matched_vocab}
+
+
 def search_exercises(
     muscle_groups: Optional[list[str]] = None,
     equipment: Optional[list[str]] = None,

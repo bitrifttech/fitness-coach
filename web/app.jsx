@@ -12,11 +12,11 @@ const MODELS = [
 const EXAMPLES = [
   { text: "What muscles does a deadlift work?", tag: "COACH", color: "var(--r-coach)" },
   { text: "Build me a 30 min upper body session with dumbbells", tag: "GENERATE", color: "var(--r-generate)" },
-  { text: "I just did 3x10 bench press at 185 lbs", tag: "LOG", color: "var(--r-log)" },
-  { text: "I did a workout yesterday, can you adjust it?", tag: "AMBIGUOUS", color: "var(--r-clarify)" },
-  { text: "Bench press", tag: "AMBIGUOUS", color: "var(--r-clarify)" },
+  { text: "I just did 3x10 bench at 185 lb and 3x12 dumbbell rows at 70 lb", tag: "LOG", color: "var(--r-log)" },
+  { text: "Bench press", tag: "CLARIFY", color: "var(--r-clarify)" },
+  { text: "I did a workout yesterday, can you adjust it?", tag: "ADJUST", color: "var(--r-clarify)" },
   { text: "Build me a back workout using a rowing machine", tag: "RESILIENCE", color: "var(--r-recover)" },
-  { text: "Build a leg workout but avoid loading my shoulder", tag: "INJURY", color: "var(--r-generate)" },
+  { text: "Build a 25 min leg workout but avoid loading my shoulder", tag: "INJURY", color: "var(--r-generate)" },
 ];
 
 const ACCENTS = {
@@ -98,9 +98,10 @@ function App() {
 
   const sessionLog = deriveSessionLog(messages);
 
-  const send = useCallback(async (rawText) => {
+  const send = useCallback(async (rawText, opts = {}) => {
     const text = (rawText != null ? rawText : draft).trim();
     if (!text || thinking) return;
+    const activeThread = opts.threadId ?? thread;
     setDraft("");
     if (taRef.current) taRef.current.style.height = "auto";
 
@@ -153,11 +154,11 @@ function App() {
       let turn;
       if (window.FitEngine.routeStream) {
         setMessages((prev) => [...prev, { id: placeholderId, role: "assistant", turn: { ...partialTurn } }]);
-        turn = await window.FitEngine.routeStream(text, threshold, thread, applyPartial);
+        turn = await window.FitEngine.routeStream(text, threshold, activeThread, applyPartial);
       } else {
-        turn = await window.FitEngine.route(text, threshold, thread);
+        turn = await window.FitEngine.route(text, threshold, activeThread);
       }
-      if (turn.thread_id && turn.thread_id !== thread) {
+      if (turn.thread_id && turn.thread_id !== activeThread) {
         setThread(turn.thread_id);
       }
       if (turn.content && turn.content.type === "log") {
@@ -169,7 +170,7 @@ function App() {
       });
     } catch (e) {
       try {
-        const turn = await window.FitEngine.route(text, threshold, thread);
+        const turn = await window.FitEngine.route(text, threshold, activeThread);
         setMessages((prev) => {
           const without = prev.filter((m) => m.id !== placeholderId);
           return [...without, { id: nid(), role: "assistant", turn }];
@@ -317,7 +318,7 @@ function App() {
               <div className="empty-state">
                 <div className="empty-icon">{Icons.dumbbell}</div>
                 <div className="empty-title">Fresh thread · {thread}</div>
-                <div className="empty-sub">Ask a coaching question, request a workout, or log a set. The hub router will pick an agent — expand “Show reasoning” on any reply to see the route, confidence, and tool calls.</div>
+                <div className="empty-sub">Each example prompt below demos a different capability — coaching (Markdown), workout cards, logging, confidence routing, adjust-vs-log, missing equipment, and injury filters. Expand “Show reasoning” for the route, tools, and recoveries.</div>
               </div>
             )}
             {messages.map((m, i) => (

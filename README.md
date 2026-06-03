@@ -27,8 +27,9 @@ confidence, and tool calls for every turn.
 |-------|---------|-----------|
 | `COACH` | "What muscles does a deadlift work?" | LLM Q&A graph |
 | `WORKOUT_GENERATE` | "Build me a 30 min upper body session with dumbbells" | tool-calling ReAct agent (`search_exercises`, `build_workout`) |
-| `WORKOUT_LOG` | "I just did 3x10 bench press at 185 lbs" | structured extraction + fuzzy match |
+| `WORKOUT_LOG` | "I just did 3x10 bench at 185 lb and 3x12 dumbbell rows at 70 lb" | structured extraction + fuzzy match |
 | `CLARIFY` (fallback) | "Bench press" | asks the user to disambiguate |
+| `CLARIFY` (adjust) | "I did a workout yesterday, can you adjust it?" | routes away from logger; asks what you did |
 
 ## Architecture
 
@@ -59,9 +60,10 @@ confidence, and tool calls for every turn.
 ## Resilience
 
 - **No search results** (e.g. equipment not in the dataset) → the tool returns
-  `{count: 0, results: []}`, and the generator's prompt forbids inventing
-  exercises: it relaxes a filter and retries, then explains what's unavailable.
-  A `recovery` trace event makes this visible.
+  `{count: 0, results: [], unmatched_equipment: [...]}`. If the user named specific
+  equipment that is not in the library, the generator explains what is unavailable
+  and does **not** silently substitute other equipment. A `recovery` trace event
+  makes this visible. Other empty searches may relax non-equipment filters and retry.
 - **Invalid tool call** (unknown `exercise_id`, bad schema) → Pydantic validation
   and an explicit id check return a structured `error` payload the agent can act
   on, rather than throwing or fabricating a workout.

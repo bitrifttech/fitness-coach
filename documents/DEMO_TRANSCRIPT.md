@@ -7,13 +7,13 @@ Each turn below shows the user message, route, confidence, and a summary of the 
 
 ---
 
-## 1. COACH — anatomy question
+## 1. COACH — anatomy question (Markdown)
 
 **User:** `What muscles does a deadlift work?`
 
 **Route:** `COACH` · confidence ~0.90
 
-**Response:** Prose answer covering hamstrings, glutes, lower back, quads, and traps.
+**Response:** Markdown-formatted prose — **bold** muscle groups, lists. No workout card.
 
 **Trace:**
 - `route` → COACH (confidence 0.90)
@@ -36,13 +36,13 @@ Each turn below shows the user message, route, confidence, and a summary of the 
 
 ---
 
-## 3. WORKOUT_LOG — fuzzy match
+## 3. WORKOUT_LOG — fuzzy match (multi-entry)
 
-**User:** `I just did 3x10 bench press at 185 lbs`
+**User:** `I just did 3x10 bench at 185 lb and 3x12 dumbbell rows at 70 lb`
 
 **Route:** `WORKOUT_LOG` · confidence ~0.90
 
-**Response:** Confirmation card — `"bench press" → Barbell Decline Bench Press` with score, 3×10, 185 lb. Entry added to Session Log sidebar.
+**Response:** Confirmation card with fuzzy-matched exercises, sets/reps/weight. Both entries appear in the Session Log sidebar.
 
 **Trace:**
 - `route` → WORKOUT_LOG
@@ -65,23 +65,38 @@ Each turn below shows the user message, route, confidence, and a summary of the 
 
 ---
 
-## 5. RESILIENCE — empty search recovery
+## 5. ADJUST — not logging
+
+**User:** `I did a workout yesterday, can you adjust it?`
+
+**Route:** `CLARIFY` · confidence capped below threshold (not `WORKOUT_LOG`)
+
+**Response:** Clarify card — asks what you did or offers **Build or adjust a workout** / coaching. Does **not** send to the logger.
+
+**Trace:**
+- `route` → WORKOUT_GENERATE at low confidence (or corrected from LOG)
+- `note` → gate → CLARIFY
+
+---
+
+## 6. RESILIENCE — equipment not in library
 
 **User:** `Build me a back workout using a rowing machine`
 
 **Route:** `WORKOUT_GENERATE`
 
-**Response:** Agent relaxes filters or explains rowing machine is not in the 50-exercise library. No fabricated exercise ids.
+**Response:** No workout card with wrong equipment. Prose explains that a **rowing machine** is not in the library, suggests the closest row-style option (**Chest Supported Row Machine**), and offers to build with available equipment. Trace shows `unmatched_equipment` / equipment recovery — not a silent dumbbell fallback.
 
 **Trace:**
-- `tool` → search_exercises → 0 results
-- `recover` → empty search → relaxing filters and re-searching
+- `tool` → search_exercises → 0 results, `unmatched_equipment: ["rowing machine"]`
+- `recover` → equipment not in library
+- No `build_workout` with exercises that ignore the user's equipment request
 
 ---
 
-## 6. INJURY — joint avoidance
+## 7. INJURY — joint avoidance
 
-**User:** `Build a leg workout but avoid loading my shoulder`
+**User:** `Build a 25 min leg workout but avoid loading my shoulder`
 
 **Route:** `WORKOUT_GENERATE`
 

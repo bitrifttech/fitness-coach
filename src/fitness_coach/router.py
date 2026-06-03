@@ -56,8 +56,15 @@ Guidance:
   low-confidence clarify (options: WORKOUT_GENERATE, COACH). NOT WORKOUT_LOG.
 - Be honest about confidence. Vague inputs like "bench press" with no verb are
   genuinely ambiguous — give LOW confidence and list clarify_options.
+- Classify **only the latest user message**. Do not assume prior turns define
+  intent for a short or vague new message (e.g. "Bench press" after a workout).
 - High confidence (>=0.8) only when intent is clear and unambiguous.
 """
+
+_EXTERNAL_SESSION = re.compile(
+    r"\b(yesterday|last week|last session|last time|earlier today|other day)\b",
+    re.I,
+)
 
 _ADJUST_MARKERS = (
     "adjust",
@@ -113,13 +120,53 @@ def _has_workout_spec(text: str) -> bool:
 
 
 def adjust_request_needs_clarify(state: HubState) -> bool:
-    """Adjust requests without enough detail should clarify, not run the generator."""
+    """Adjust requests without enough detail should clarify, not re-run the generator."""
     text = _last_user_text(state).lower()
     if not text or not any(m in text for m in _ADJUST_MARKERS):
         return False
-    if state.get("workout"):
+    if _EXTERNAL_SESSION.search(text):
+        return True
+    if _has_workout_spec(text):
         return False
-    return not _has_workout_spec(text)
+    if state.get("workout") and re.search(r"\b(it|this|that)\b", text):
+        return False
+    return True
+
+
+def bare_phrase_needs_clarify(state: HubState) -> bool:
+    """Short noun-only messages (e.g. 'Bench press') must not reuse prior context."""
+    text = _last_user_text(state).strip()
+    if not text or len(text) > 48:
+        return False
+    if len(text.split()) > 4:
+        return False
+    lower = text.lower()
+    if any(m in lower for m in _ADJUST_MARKERS):
+        return False
+    if _LOG_DATA.search(text) or _has_workout_spec(text):
+        return False
+    action_hints = (
+        "build",
+        "log",
+        "how",
+        "what",
+        "why",
+        "tell",
+        "explain",
+        "avoid",
+        "create",
+        "give",
+        "using",
+        "with",
+        "just",
+        "i did",
+        "i just",
+        "adjust",
+        "modify",
+    )
+    if any(h in lower for h in action_hints):
+        return False
+    return True
 
 
 def _correct_log_misroute(decision: RoutingDecision, state: HubState) -> RoutingDecision:
@@ -159,12 +206,31 @@ def _correct_adjust_without_spec(decision: RoutingDecision, state: HubState) -> 
     )
 
 
+def _correct_bare_phrase(decision: RoutingDecision, state: HubState) -> RoutingDecision:
+    """Noun-only messages must clarify even if thread history suggests generate."""
+    if not bare_phrase_needs_clarify(state):
+        return decision
+    options = list(decision.clarify_options) or []
+    for route in ("COACH", "WORKOUT_GENERATE", "WORKOUT_LOG"):
+        if route not in options:
+            options.append(route)
+    return decision.model_copy(
+        update={
+            "route": "COACH",
+            "confidence": min(decision.confidence, 0.45),
+            "rationale": "Short phrase with no clear intent — ask what the user wants.",
+            "clarify_options": options[:3],
+        }
+    )
+
+
 def router_node(state: HubState) -> dict:
     model = get_chat_model(temperature=0.0).with_structured_output(RoutingDecision)
     messages = [SystemMessage(content=_SYSTEM_PROMPT), *state["messages"]]
     decision: RoutingDecision = model.invoke(messages)
     decision = _correct_log_misroute(decision, state)
     decision = _correct_adjust_without_spec(decision, state)
+    decision = _correct_bare_phrase(decision, state)
 
     # Router runs first on every turn, so start a fresh per-turn trace here.
     trace: list = []
@@ -201,6 +267,8 @@ def route_gate(state: HubState, config: Optional[RunnableConfig] = None) -> str:
     if log_route_is_adjust_request(state):
         return "clarify"
     if adjust_request_needs_clarify(state):
+        return "clarify"
+    if bare_phrase_needs_clarify(state):
         return "clarify"
     if state.get("confidence", 0.0) < threshold:
         return "clarify"

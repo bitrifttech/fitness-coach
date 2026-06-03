@@ -88,8 +88,11 @@ def search_exercises(
         avoid_joints=avoid_joints,
         limit=limit,
     )
+    equip_check = exercises.check_equipment_terms(equipment)
     return {
         "count": len(results),
+        "unmatched_equipment": equip_check["unmatched"],
+        "matched_equipment_vocab": equip_check["matched_vocab"],
         "results": [
             {
                 "id": e["id"],
