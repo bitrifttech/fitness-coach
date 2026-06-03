@@ -79,6 +79,14 @@ _LOG_DATA = re.compile(
     r"\b\d+\.?\d*\s*(lbs?|kg)\b",
     re.I,
 )
+_WORKOUT_SPEC = re.compile(
+    r"\b\d+\s*(min|minute|mins|hour|hr)\b|"
+    r"\b(build|create|give)\s+me\b|"
+    r"\b(dumbbell|barbell|kettlebell|bodyweight|resistance band)\b|"
+    r"\b(upper|lower|full)[\s-]?body\b|"
+    r"\b(chest|back|legs|shoulders|arms|core|glutes)\b",
+    re.I,
+)
 
 
 def _last_user_text(state: HubState) -> str:
@@ -98,6 +106,20 @@ def log_route_is_adjust_request(state: HubState) -> bool:
     if not text or not any(m in text for m in _ADJUST_MARKERS):
         return False
     return _LOG_DATA.search(text) is None
+
+
+def _has_workout_spec(text: str) -> bool:
+    return _WORKOUT_SPEC.search(text) is not None or _LOG_DATA.search(text) is not None
+
+
+def adjust_request_needs_clarify(state: HubState) -> bool:
+    """Adjust requests without enough detail should clarify, not run the generator."""
+    text = _last_user_text(state).lower()
+    if not text or not any(m in text for m in _ADJUST_MARKERS):
+        return False
+    if state.get("workout"):
+        return False
+    return not _has_workout_spec(text)
 
 
 def _correct_log_misroute(decision: RoutingDecision, state: HubState) -> RoutingDecision:
@@ -120,11 +142,29 @@ def _correct_log_misroute(decision: RoutingDecision, state: HubState) -> Routing
     )
 
 
+def _correct_adjust_without_spec(decision: RoutingDecision, state: HubState) -> RoutingDecision:
+    """High-confidence WORKOUT_GENERATE on vague adjust requests → clarify."""
+    if decision.route != "WORKOUT_GENERATE" or not adjust_request_needs_clarify(state):
+        return decision
+    options = [o for o in decision.clarify_options if o != "WORKOUT_LOG"]
+    for route in ("WORKOUT_GENERATE", "COACH"):
+        if route not in options:
+            options.append(route)
+    return decision.model_copy(
+        update={
+            "confidence": min(decision.confidence, 0.45),
+            "rationale": "Need details on what was done before adjusting the workout.",
+            "clarify_options": options[:3],
+        }
+    )
+
+
 def router_node(state: HubState) -> dict:
     model = get_chat_model(temperature=0.0).with_structured_output(RoutingDecision)
     messages = [SystemMessage(content=_SYSTEM_PROMPT), *state["messages"]]
     decision: RoutingDecision = model.invoke(messages)
     decision = _correct_log_misroute(decision, state)
+    decision = _correct_adjust_without_spec(decision, state)
 
     # Router runs first on every turn, so start a fresh per-turn trace here.
     trace: list = []
@@ -159,6 +199,8 @@ def route_gate(state: HubState, config: Optional[RunnableConfig] = None) -> str:
     """
     threshold = _resolve_threshold(config)
     if log_route_is_adjust_request(state):
+        return "clarify"
+    if adjust_request_needs_clarify(state):
         return "clarify"
     if state.get("confidence", 0.0) < threshold:
         return "clarify"

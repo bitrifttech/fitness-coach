@@ -120,7 +120,7 @@ def _shape_content(ui_route: str, top_route: str, reply: str, state: dict) -> di
     if ui_route == "CLARIFY":
         return _clarify_content(reply, state, top_route)
     if ui_route == "WORKOUT_GENERATE":
-        return _workout_content(state.get("workout") or {}, state.get("trace") or [])
+        return _workout_content(state.get("workout") or {}, state.get("trace") or [], reply)
     if ui_route == "WORKOUT_LOG":
         return _log_content(state.get("log_entries") or [])
     return _coach_content(reply)
@@ -130,9 +130,10 @@ def _coach_content(reply: str) -> dict:
     return {"type": "coach", "prose": reply, "joints": [], "refs": []}
 
 
-def _workout_content(workout: dict, trace: list[dict]) -> dict:
+def _workout_content(workout: dict, trace: list[dict], reply: str = "") -> dict:
     if not workout:
-        return {"type": "coach", "prose": "(no workout produced)", "joints": [], "refs": []}
+        prose = reply.strip() if reply and reply.strip() else "(no workout produced)"
+        return {"type": "coach", "prose": prose, "joints": [], "refs": []}
 
     sections = [_shape_workout_section(sec) for sec in workout.get("sections", [])]
     duration = workout.get("duration_minutes")

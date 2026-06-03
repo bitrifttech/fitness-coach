@@ -12,6 +12,7 @@ from unittest.mock import MagicMock, patch
 
 from fitness_coach.router import (
     RoutingDecision,
+    adjust_request_needs_clarify,
     log_route_is_adjust_request,
     route_gate,
     router_node,
@@ -51,6 +52,47 @@ def test_concrete_log_is_not_adjust_misroute():
     state = {"route": "WORKOUT_LOG", "confidence": 0.92, "messages": [("user", text)]}
     assert not log_route_is_adjust_request(state)
     assert route_gate(state) == "WORKOUT_LOG"
+
+
+def test_adjust_without_spec_clarifies_even_at_high_confidence():
+    text = "I did a workout yesterday, can you adjust it?"
+    state = {
+        "route": "WORKOUT_GENERATE",
+        "confidence": 0.92,
+        "messages": [("user", text)],
+    }
+    assert adjust_request_needs_clarify(state)
+    assert route_gate(state) == "clarify"
+
+
+def test_adjust_with_spec_does_not_force_clarify():
+    text = "Adjust my 30 min upper body dumbbell session — make it easier"
+    state = {
+        "route": "WORKOUT_GENERATE",
+        "confidence": 0.92,
+        "messages": [("user", text)],
+    }
+    assert not adjust_request_needs_clarify(state)
+    assert route_gate(state) == "WORKOUT_GENERATE"
+
+
+def test_router_corrects_high_confidence_adjust_without_spec():
+    decision = RoutingDecision(
+        route="WORKOUT_GENERATE",
+        confidence=0.91,
+        rationale="wants to adjust workout",
+        clarify_options=[],
+    )
+    fake_model = MagicMock()
+    fake_model.with_structured_output.return_value.invoke.return_value = decision
+
+    with patch("fitness_coach.router.get_chat_model", return_value=fake_model):
+        out = router_node(
+            {"messages": [("user", "I did a workout yesterday, can you adjust it?")]}
+        )
+
+    assert out["route"] == "WORKOUT_GENERATE"
+    assert out["confidence"] <= 0.45
 
 
 def test_router_corrects_log_misroute_on_adjust():

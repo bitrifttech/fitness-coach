@@ -17,7 +17,7 @@ from langgraph.graph import END, START, StateGraph
 from .agents.coach import build_coach_graph
 from .agents.generator import build_generator_graph
 from .agents.logger import build_logger_graph
-from .router import route_gate, router_node
+from .router import adjust_request_needs_clarify, route_gate, router_node
 from .state import HubState
 
 _ROUTE_LABELS = {
@@ -37,10 +37,16 @@ def _clarify(state: HubState) -> dict:
         choices = pretty[0] if pretty else "something else"
 
     conf = state.get("confidence", 0.0)
-    msg = (
-        f"I want to make sure I help correctly (I'm only {conf:.0%} sure what you meant). "
-        f"Did you want {choices}? Let me know and I'll take it from there."
-    )
+    if adjust_request_needs_clarify(state):
+        msg = (
+            "Happy to adjust your workout — tell me what you did (exercises, duration, "
+            "equipment, how it felt), or pick an option below."
+        )
+    else:
+        msg = (
+            f"I want to make sure I help correctly (I'm only {conf:.0%} sure what you meant). "
+            f"Did you want {choices}? Let me know and I'll take it from there."
+        )
     trace = list(state.get("trace") or [])
     trace.append(
         {

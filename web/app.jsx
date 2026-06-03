@@ -205,6 +205,7 @@ function App() {
       "Log a bench set": "I just did 3x10 bench press at 185 lbs",
       "Add it to a workout": "Build me a 30 min upper body session with dumbbells",
       "Build a workout": "Build me a 30 min upper body session with dumbbells",
+      "Build or adjust a workout": "Build me a 30 min upper body session with dumbbells",
       "Log a set": "I just did 3x10 bench press at 185 lbs",
       "Answer as coaching": "What muscles does a deadlift work?",
     };
