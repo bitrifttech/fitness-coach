@@ -129,7 +129,9 @@ function App() {
       if (upd.confidence != null) partialTurn.confidence = upd.confidence;
       if (upd.routing_rationale) partialTurn.rationale = upd.routing_rationale;
       if (upd.trace && upd.trace.length) {
-        partialTurn.trace = partialTurn.trace.concat(upd.trace);
+        partialTurn.trace = window.normalizeTrace
+          ? window.normalizeTrace(upd.trace)
+          : upd.trace;
       }
       if (ev.node && ev.node !== "__final__") {
         partialTurn.content = {
@@ -323,11 +325,11 @@ function App() {
                   <div className="user-bubble">{m.text}</div>
                 </div>
               ) : (
-                <div className="turn turn-assistant" key={m.id} style={routeVars(m.turn.route)}>
+                <div className="turn turn-assistant" key={m.id} style={routeVars(m.turn.route || "CLARIFY")}>
                   <div className="assistant-head">
-                    <span className="agent-avatar">{ROUTE_META[m.turn.route].icon}</span>
-                    <span className="route-badge">{ROUTE_META[m.turn.route].agent}</span>
-                    <span className="conf-chip">conf <b>{m.turn.confidence.toFixed(2)}</b></span>
+                    <span className="agent-avatar">{(ROUTE_META[m.turn.route] || ROUTE_META.CLARIFY).icon}</span>
+                    <span className="route-badge">{(ROUTE_META[m.turn.route] || ROUTE_META.CLARIFY).agent}</span>
+                    <span className="conf-chip">conf <b>{Number(m.turn.confidence ?? 0).toFixed(2)}</b></span>
                   </div>
                   <AssistantCard turn={m.turn} onPick={onPickClarify} />
                   <Trace turn={m.turn} defaultOpen={t.autoOpenTrace} />

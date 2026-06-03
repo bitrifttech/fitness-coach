@@ -54,18 +54,83 @@ function JsonInline({ obj }) {
 }
 
 /* ----------------------------------------------------------- TRACE expander */
+function safeTraceText(val) {
+  if (val == null) return null;
+  if (typeof val === "string" || typeof val === "number" || typeof val === "boolean") return String(val);
+  return JSON.stringify(val);
+}
+
+function normalizeTraceStep(ev) {
+  if (!ev) return { kind: "note", label: "" };
+  if (ev.kind === "router" || ev.kind === "tool" || ev.kind === "recover" || ev.kind === "agent" || ev.kind === "note") {
+    return ev;
+  }
+  const kind = ev.kind;
+  const detail = ev.detail || {};
+  if (kind === "route") {
+    return {
+      kind: "router",
+      label: "route_query",
+      out: `${detail.route || "?"} · ${Number(detail.confidence || 0).toFixed(2)}`,
+    };
+  }
+  if (kind === "tool_call") {
+    if (detail.args != null) {
+      return {
+        kind: "tool",
+        label: "search_exercises",
+        input: detail.args,
+        out: detail.count != null ? `${detail.count} results` : undefined,
+        count: detail.count,
+      };
+    }
+    if (detail.score != null) {
+      return { kind: "tool", label: "fuzzy_match", out: `score ${Number(detail.score).toFixed(0)}` };
+    }
+    if (detail.title != null) {
+      return { kind: "tool", label: "build_workout", out: `ok · ${detail.title}` };
+    }
+    return { kind: "tool", label: ev.label || "tool", out: ev.label };
+  }
+  if (kind === "recovery") {
+    if (detail.args != null) {
+      return { kind: "recover", label: "fallback", out: "0 results → relaxing filters and re-searching", count: 0 };
+    }
+    if (detail.message != null) {
+      return { kind: "recover", label: "rejected", out: String(detail.message) };
+    }
+    return { kind: "recover", label: "fallback", out: ev.label || "recovered" };
+  }
+  if (kind === "agent") return { kind: "agent", label: ev.label || "agent" };
+  if (kind === "clarify") {
+    const conf = detail.confidence;
+    return {
+      kind: "note",
+      label: "gate",
+      out: conf != null ? `${Number(conf).toFixed(2)} below threshold → CLARIFY` : (ev.label || "CLARIFY"),
+    };
+  }
+  return { kind: "note", label: ev.label || "" };
+}
+
+function normalizeTrace(trace) {
+  return (trace || []).map(normalizeTraceStep);
+}
+
 function Trace({ turn, defaultOpen }) {
   const [open, setOpen] = useState(!!defaultOpen);
-  const hasRecover = (turn.trace || []).some((s) => s.kind === "recover" || s.count === 0);
+  const steps = normalizeTrace(turn.trace);
+  const hasRecover = steps.some((s) => s.kind === "recover" || s.count === 0);
   const m = ROUTE_META[turn.route] || ROUTE_META.CLARIFY;
+  const conf = Number(turn.confidence ?? 0);
 
   return (
-    <div className="trace" style={routeVars(turn.route)}>
-      <button className="trace-toggle" aria-expanded={open} onClick={() => setOpen(!open)}>
+    <div className="trace" style={routeVars(turn.route || "CLARIFY")}>
+      <button type="button" className="trace-toggle" aria-expanded={open} onClick={() => setOpen(!open)}>
         <span className="chev">{Icons.chevron}</span>
         {Icons.brain}
         <span>Show reasoning</span>
-        <span style={{ color: "var(--text-3)" }}>· {m.label.toLowerCase()} · {turn.confidence.toFixed(2)}</span>
+        <span style={{ color: "var(--text-3)" }}>· {m.label.toLowerCase()} · {conf.toFixed(2)}</span>
         {hasRecover && <span className="recover-flag">{Icons.alert}recovered</span>}
       </button>
       {open && (
@@ -78,8 +143,8 @@ function Trace({ turn, defaultOpen }) {
             </div>
             <div className="trace-meta-row">
               <span className="k">confidence</span>
-              <div className="confbar"><i style={{ width: (turn.confidence * 100) + "%" }} /></div>
-              <span className="conf-chip"><b>{turn.confidence.toFixed(2)}</b>{turn.threshold != null ? " / thr " + turn.threshold.toFixed(2) : ""}</span>
+              <div className="confbar"><i style={{ width: (conf * 100) + "%" }} /></div>
+              <span className="conf-chip"><b>{conf.toFixed(2)}</b>{turn.threshold != null ? " / thr " + Number(turn.threshold).toFixed(2) : ""}</span>
             </div>
             {turn.candidates && (
               <div className="trace-meta-row">
@@ -91,11 +156,18 @@ function Trace({ turn, defaultOpen }) {
             )}
             <div className="trace-meta-row">
               <span className="k">rationale</span>
-              <span className="v rationale">{turn.rationale}</span>
+              <span className="v rationale">{turn.rationale || (turn.streaming ? "Routing in progress…" : "—")}</span>
             </div>
           </div>
+          {turn.streaming && (
+            <div className="trace-streaming-note">Agents still running — trace updates live.</div>
+          )}
           <div className="trace-steps">
-            {(turn.trace || []).map((s, i) => <TraceStep key={i} step={s} />)}
+            {steps.length === 0 && turn.streaming ? (
+              <div className="trace-empty">Waiting for router…</div>
+            ) : (
+              steps.map((s, i) => <TraceStep key={i} step={s} />)
+            )}
           </div>
         </div>
       )}
@@ -105,6 +177,7 @@ function Trace({ turn, defaultOpen }) {
 
 function TraceStep({ step }) {
   const kindLabel = { router: "route", tool: "tool", recover: "recover", agent: "agent", note: "note" }[step.kind] || step.kind;
+  const detailText = safeTraceText(step.detail);
   return (
     <div className="tstep" data-kind={step.kind}>
       <div className="tstep-rail"><span className="tstep-dot" /></div>
@@ -114,7 +187,7 @@ function TraceStep({ step }) {
           {step.label}
         </div>
         <div className="tstep-io">
-          {step.detail && <span>{step.detail} </span>}
+          {detailText && <span>{detailText} </span>}
           {step.input && (<><JsonInline obj={step.input} /> <span className="arrow">→</span> </>)}
           {step.out && (
             <span className={"out" + (step.count === 0 ? " count0" : "")}>{step.out}</span>
@@ -126,16 +199,37 @@ function TraceStep({ step }) {
 }
 
 /* ----------------------------------------------------------- assistant CARDS */
+const JOINTS_GROUP_HINT =
+  "Joints under load across this workout, based on joints_loaded in the exercise library.";
+
+function JointsLoaded({ joints, style }) {
+  if (!joints || !joints.length) return null;
+  return (
+    <div className="joints-loaded" style={style} title={JOINTS_GROUP_HINT}>
+      <div className="refs-label joints-loaded-label" title={JOINTS_GROUP_HINT}>
+        Joints loaded
+      </div>
+      <div className="coach-tags joints-loaded-tags">
+        {joints.map((j) => (
+          <span
+            key={j}
+            className="tag tag-joint"
+            title={`${j} — under load from at least one exercise in this session`}
+          >
+            {j}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function CoachCard({ content }) {
   return (
     <div className="card card-accent" style={routeVars("COACH")}>
       <div className="coach-body">
         <p className="coach-prose">{content.prose}</p>
-        {content.joints && content.joints.length > 0 && (
-          <div className="coach-tags">
-            {content.joints.map((j) => <span key={j} className="tag tag-joint">{j}</span>)}
-          </div>
-        )}
+        <JointsLoaded joints={content.joints} />
         {content.refs && content.refs.length > 0 && (
           <>
             <div className="refs-label">Exercises referenced</div>
@@ -152,19 +246,11 @@ function CoachCard({ content }) {
 }
 
 function ExRow({ item }) {
-  const ex = EX[item.id] || { name: item.id, equipment_required: [], is_bilateral: true };
-  const sideBadge = item.paired
-    ? (item.side_label ? String(item.side_label).replace("_", " ").toUpperCase() : "OTHER SIDE")
-    : ex.is_bilateral === false
-      ? (item.side_label ? String(item.side_label).replace("_", " ").toUpperCase() + " · BOTH SIDES" : "UNI · BOTH SIDES")
-      : null;
+  const ex = EX[item.id] || { name: item.id, equipment_required: [] };
   return (
     <div className="ex-row">
       <div className="ex-main">
-        <div className="ex-name">
-          {ex.name}
-          {sideBadge && <span className="uni-badge" title="bilateral pairing">{sideBadge}</span>}
-        </div>
+        <div className="ex-name">{ex.name}</div>
         <div className="ex-sub">
           <span className="mono">{(ex.equipment_required || []).join(" · ")}</span>
           {ex.priority_tier && <span>tier {ex.priority_tier}</span>}
@@ -192,11 +278,7 @@ function WorkoutCard({ content }) {
       {content.recovered && (
         <p className="wk-recover">{Icons.alert}<span>{content.recovered}</span></p>
       )}
-      {content.joints && content.joints.length > 0 && (
-        <div className="coach-tags" style={{ padding: "0 14px 8px" }}>
-          {content.joints.map((j) => <span key={j} className="tag tag-joint">{j}</span>)}
-        </div>
-      )}
+      <JointsLoaded joints={content.joints} style={{ padding: "0 14px 8px" }} />
       {content.sections.map((sec) => (
         <div className="wk-section" key={sec.name}>
           <div className="wk-section-name">{sec.name}</div>
@@ -262,4 +344,5 @@ function AssistantCard({ turn, onPick }) {
 Object.assign(window, {
   Icons, ROUTE_META, routeVars, Trace, AssistantCard,
   CoachCard, WorkoutCard, LogCard, ClarifyCard, ExRow,
+  normalizeTrace,
 });

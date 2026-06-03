@@ -33,7 +33,6 @@ Each turn below shows the user message, route, confidence, and a summary of the 
 - `route` → WORKOUT_GENERATE
 - `tool` → search_exercises → N results
 - `tool` → build_workout → ok
-- Unilateral exercises appear as two rows (e.g. LEFT ARM · BOTH SIDES)
 
 ---
 

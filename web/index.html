@@ -267,6 +267,9 @@ body {
   display: inline-flex; align-items: center; gap: 5px;
 }
 .tag-joint::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--r-recover); }
+.joints-loaded-tags { margin-top: 7px; }
+.joints-loaded-label { margin: 0; cursor: help; }
+.joints-loaded { cursor: help; }
 .refs-label { font-family: var(--font-mono); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); margin: 14px 0 7px; }
 .ref-chip {
   display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 500;
@@ -356,6 +359,11 @@ body {
 .confbar > i { display: block; height: 100%; border-radius: 99px; background: var(--route-color, var(--accent)); }
 
 .trace-steps { padding: 6px 0; }
+.trace-streaming-note {
+  padding: 8px 13px; font-size: 11px; font-family: var(--font-mono); color: var(--text-3);
+  border-bottom: 1px dashed var(--border-strong); background: var(--surface-3);
+}
+.trace-empty { padding: 10px 13px; font-size: 12px; color: var(--text-3); font-style: italic; }
 .tstep { display: grid; grid-template-columns: 18px 1fr; gap: 9px; padding: 7px 13px; position: relative; }
 .tstep-rail { display: flex; flex-direction: column; align-items: center; }
 .tstep-dot { width: 9px; height: 9px; border-radius: 50%; margin-top: 4px; background: var(--text-3); border: 2px solid var(--surface-2); box-shadow: 0 0 0 1px var(--border-strong); z-index: 1; }

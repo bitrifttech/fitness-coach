@@ -122,8 +122,7 @@ def build_workout(
 
     Every ``exercise_id`` must come from search_exercises results. Unknown ids
     are rejected with an error so the caller can correct the tool call instead of
-    fabricating a workout. Unilateral exercises are auto-expanded to include the
-    opposite side.
+    fabricating a workout.
     """
 
     def _base_item(raw: dict, ex: dict) -> dict:
@@ -151,7 +150,7 @@ def build_workout(
                 joint_conflicts.append(ex["name"])
                 continue
             base = _base_item(item, ex)
-            built.extend(exercises.expand_bilateral(base, ex))
+            built.append(base)
         return built, bad, joint_conflicts
 
     sections = []

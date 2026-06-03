@@ -117,8 +117,8 @@ of the system):
 
 These are deterministic (no live LLM calls) so they're cheap and CI-safe.
 
-Additional tests cover stretch-goal behavior: injury avoidance (`test_injury.py`),
-bilateral pairing (`test_bilateral.py`), and session log history (`test_session_log.py`).
+Additional tests cover stretch-goal behavior: injury avoidance (`test_injury.py`)
+and session log history (`test_session_log.py`).
 
 ## Stretch goals (implemented)
 
@@ -127,7 +127,6 @@ bilateral pairing (`test_bilateral.py`), and session log history (`test_session_
 | Streaming | `POST /api/chat/stream` (SSE); console uses `FitEngine.routeStream` with incremental node updates |
 | Multi-turn memory | `MemorySaver` + `thread_id`; `log_history` reducer accumulates logged sets across turns |
 | Injury avoidance | `avoid_joints` on `search_exercises` / `build_workout`; joint chips on workout cards |
-| Bilateral pairing | `expand_bilateral()` auto-adds mirror side for unilateral exercises in `build_workout` |
 | Observability | LangSmith tracing via `LANGCHAIN_TRACING_V2` + `LANGSMITH_API_KEY` — see below |
 
 ## Observability (LangSmith)
@@ -206,6 +205,6 @@ src/fitness_coach/
   config.py  llm.py  state.py  exercises.py  tools.py  router.py
   hub.py  service.py
   agents/    coach.py  generator.py  logger.py
-tests/       test_routing.py  test_resilience.py  test_injury.py  test_bilateral.py
+tests/       test_routing.py  test_resilience.py  test_injury.py  test_session_log.py
 documents/   DEMO_TRANSCRIPT.md  ASSESSMENT.md
 ```

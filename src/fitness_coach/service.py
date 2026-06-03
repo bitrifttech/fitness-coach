@@ -164,17 +164,12 @@ def _shape_workout_section(section: dict) -> dict:
 
 
 def _shape_workout_item(item: dict) -> dict:
-    shaped = {
+    return {
         "id": item.get("exercise_id"),
         "sets": item.get("sets"),
         "reps": _format_reps(item.get("reps"), item.get("duration_seconds")),
         "rest": _format_rest(item.get("rest_seconds")),
     }
-    if item.get("side_label"):
-        shaped["side_label"] = item["side_label"]
-    if item.get("paired"):
-        shaped["paired"] = True
-    return shaped
 
 
 def _format_reps(reps: Optional[int], duration_seconds: Optional[int]) -> str:
