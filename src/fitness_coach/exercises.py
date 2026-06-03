@@ -52,15 +52,27 @@ def _matches_any(needles: list[str], haystack: list[str]) -> bool:
     return False
 
 
+def _joints_conflict(exercise: dict[str, Any], avoid_joints: list[str]) -> bool:
+    """True when the exercise loads any joint the caller wants to avoid."""
+    if not avoid_joints:
+        return False
+    avoid = {j.lower().strip() for j in avoid_joints}
+    loaded = {j.lower().strip() for j in (exercise.get("joints_loaded") or [])}
+    return bool(avoid & loaded)
+
+
 def search_exercises(
     muscle_groups: Optional[list[str]] = None,
     equipment: Optional[list[str]] = None,
     movement_patterns: Optional[list[str]] = None,
+    avoid_joints: Optional[list[str]] = None,
     limit: int = 25,
 ) -> list[dict[str, Any]]:
     """Filter the dataset by any combination of facets.
 
     All provided facets must match (logical AND). Empty/None facets are ignored.
+    When ``avoid_joints`` is set, exercises whose ``joints_loaded`` intersects
+    that list are excluded (injury avoidance).
     Returns up to ``limit`` exercises, lower ``priority_tier`` first.
     """
     results: list[dict[str, Any]] = []
@@ -73,9 +85,62 @@ def search_exercises(
             movement_patterns, ex.get("movement_patterns", [])
         ):
             continue
+        if avoid_joints and _joints_conflict(ex, avoid_joints):
+            continue
         results.append(ex)
     results.sort(key=lambda e: e.get("priority_tier", 99))
     return results[:limit]
+
+
+def joints_for_exercise_ids(exercise_ids: list[str]) -> set[str]:
+    """Union of ``joints_loaded`` across the given exercise ids."""
+    joints: set[str] = set()
+    for eid in exercise_ids:
+        ex = get_by_id(eid)
+        if ex:
+            joints.update(ex.get("joints_loaded") or [])
+    return joints
+
+
+_SIDE_OPPOSITE = {
+    "left_arm": "right_arm",
+    "right_arm": "left_arm",
+    "left_side": "right_side",
+    "right_side": "left_side",
+    "left_leg": "right_leg",
+    "right_leg": "left_leg",
+}
+
+
+def opposite_side(side: Optional[str]) -> Optional[str]:
+    if not side:
+        return None
+    return _SIDE_OPPOSITE.get(side.lower(), f"other_{side}")
+
+
+def is_unilateral(exercise: dict[str, Any]) -> bool:
+    """True when the exercise targets one side and should be mirrored."""
+    if exercise.get("bilateral_pair_id") and exercise.get("side"):
+        return True
+    return exercise.get("is_bilateral") is False and bool(exercise.get("side"))
+
+
+def expand_bilateral(item: dict[str, Any], exercise: dict[str, Any]) -> list[dict[str, Any]]:
+    """Return one or two workout rows for an exercise.
+
+    Unilateral exercises get a synthetic mirror row because the dataset only
+    stores one side per ``bilateral_pair_id``.
+    """
+    if not is_unilateral(exercise):
+        return [item]
+    side = exercise.get("side")
+    primary = {**item, "side_label": side, "paired": False}
+    mirror = {
+        **item,
+        "side_label": opposite_side(side),
+        "paired": True,
+    }
+    return [primary, mirror]
 
 
 @lru_cache(maxsize=1)

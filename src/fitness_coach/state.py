@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import operator
 from typing import Annotated, Any, Literal, Optional, TypedDict
 
 from langchain_core.messages import AnyMessage
@@ -66,4 +67,5 @@ class HubState(TypedDict, total=False):
     # Route-specific payloads (only one is populated per turn):
     workout: Optional[dict[str, Any]]
     log_entries: list[dict[str, Any]]
+    log_history: Annotated[list[dict[str, Any]], operator.add]
     clarify_options: list[str]

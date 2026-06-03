@@ -16,6 +16,7 @@ const EXAMPLES = [
   { text: "I did a workout yesterday, can you adjust it?", tag: "AMBIGUOUS", color: "var(--r-clarify)" },
   { text: "Bench press", tag: "AMBIGUOUS", color: "var(--r-clarify)" },
   { text: "Build me a back workout using a rowing machine", tag: "RESILIENCE", color: "var(--r-recover)" },
+  { text: "Build a leg workout but avoid loading my shoulder", tag: "INJURY", color: "var(--r-generate)" },
 ];
 
 const ACCENTS = {
@@ -107,28 +108,87 @@ function App() {
     setMessages((prev) => [...prev, userMsg]);
     setThinking(true);
 
+    const placeholderId = nid();
+    const partialTurn = {
+      route: "CLARIFY",
+      confidence: 0,
+      rationale: "",
+      threshold,
+      trace: [],
+      content: { type: "coach", prose: "Routing…", joints: [], refs: [] },
+      streaming: true,
+    };
+
+    const applyPartial = (ev) => {
+      if (ev.node === "__thread__" && ev.thread_id) {
+        setThread(ev.thread_id);
+        return;
+      }
+      const upd = ev.update || {};
+      if (upd.route) partialTurn.route = upd.route;
+      if (upd.confidence != null) partialTurn.confidence = upd.confidence;
+      if (upd.routing_rationale) partialTurn.rationale = upd.routing_rationale;
+      if (upd.trace && upd.trace.length) {
+        partialTurn.trace = partialTurn.trace.concat(upd.trace);
+      }
+      if (ev.node && ev.node !== "__final__") {
+        partialTurn.content = {
+          type: "coach",
+          prose: `Running ${ev.node}…`,
+          joints: [],
+          refs: [],
+        };
+      }
+      setMessages((prev) => {
+        const has = prev.some((m) => m.id === placeholderId);
+        const row = { id: placeholderId, role: "assistant", turn: { ...partialTurn } };
+        if (has) return prev.map((m) => (m.id === placeholderId ? row : m));
+        return [...prev, row];
+      });
+    };
+
     try {
-      const turn = await window.FitEngine.route(text, threshold, thread);
+      let turn;
+      if (window.FitEngine.routeStream) {
+        setMessages((prev) => [...prev, { id: placeholderId, role: "assistant", turn: { ...partialTurn } }]);
+        turn = await window.FitEngine.routeStream(text, threshold, thread, applyPartial);
+      } else {
+        turn = await window.FitEngine.route(text, threshold, thread);
+      }
       if (turn.thread_id && turn.thread_id !== thread) {
         setThread(turn.thread_id);
       }
       if (turn.content && turn.content.type === "log") {
         flashIdx.current = sessionLog.length;
       }
-      setMessages((prev) => [...prev, { id: nid(), role: "assistant", turn }]);
+      setMessages((prev) => {
+        const without = prev.filter((m) => m.id !== placeholderId);
+        return [...without, { id: nid(), role: "assistant", turn }];
+      });
     } catch (e) {
-      setMessages((prev) => [...prev, {
-        id: nid(),
-        role: "assistant",
-        turn: {
-          route: "CLARIFY",
-          confidence: 0,
-          rationale: "request failed",
-          threshold,
-          trace: [],
-          content: { type: "clarify", question: "Request failed: " + (e.message || e), options: [] },
-        },
-      }]);
+      try {
+        const turn = await window.FitEngine.route(text, threshold, thread);
+        setMessages((prev) => {
+          const without = prev.filter((m) => m.id !== placeholderId);
+          return [...without, { id: nid(), role: "assistant", turn }];
+        });
+      } catch (e2) {
+        setMessages((prev) => {
+          const without = prev.filter((m) => m.id !== placeholderId);
+          return [...without, {
+            id: nid(),
+            role: "assistant",
+            turn: {
+              route: "CLARIFY",
+              confidence: 0,
+              rationale: "request failed",
+              threshold,
+              trace: [],
+              content: { type: "clarify", question: "Request failed: " + (e2.message || e2), options: [] },
+            },
+          }];
+        });
+      }
     } finally {
       setThinking(false);
     }
@@ -274,7 +334,7 @@ function App() {
                 </div>
               )
             ))}
-            {thinking && (
+            {thinking && !messages.some((m) => m.turn && m.turn.streaming) && (
               <div className="turn turn-assistant">
                 <div className="typing">
                   <span className="dots"><i /><i /><i /></span>

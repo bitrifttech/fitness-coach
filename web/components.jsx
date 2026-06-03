@@ -153,12 +153,17 @@ function CoachCard({ content }) {
 
 function ExRow({ item }) {
   const ex = EX[item.id] || { name: item.id, equipment_required: [], is_bilateral: true };
+  const sideBadge = item.paired
+    ? (item.side_label ? String(item.side_label).replace("_", " ").toUpperCase() : "OTHER SIDE")
+    : ex.is_bilateral === false
+      ? (item.side_label ? String(item.side_label).replace("_", " ").toUpperCase() + " · BOTH SIDES" : "UNI · BOTH SIDES")
+      : null;
   return (
     <div className="ex-row">
       <div className="ex-main">
         <div className="ex-name">
           {ex.name}
-          {ex.is_bilateral === false && <span className="uni-badge" title="unilateral — both sides">UNI · BOTH SIDES</span>}
+          {sideBadge && <span className="uni-badge" title="bilateral pairing">{sideBadge}</span>}
         </div>
         <div className="ex-sub">
           <span className="mono">{(ex.equipment_required || []).join(" · ")}</span>
@@ -186,6 +191,11 @@ function WorkoutCard({ content }) {
       </div>
       {content.recovered && (
         <p className="wk-recover">{Icons.alert}<span>{content.recovered}</span></p>
+      )}
+      {content.joints && content.joints.length > 0 && (
+        <div className="coach-tags" style={{ padding: "0 14px 8px" }}>
+          {content.joints.map((j) => <span key={j} className="tag tag-joint">{j}</span>)}
+        </div>
       )}
       {content.sections.map((sec) => (
         <div className="wk-section" key={sec.name}>

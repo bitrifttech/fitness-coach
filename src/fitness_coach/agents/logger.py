@@ -89,7 +89,12 @@ def _match(state: HubState) -> dict:
         matched.append(entry)
 
     summary = _summarize(matched)
-    return {"log_entries": matched, "messages": [AIMessage(content=summary)], "trace": trace}
+    return {
+        "log_entries": matched,
+        "log_history": matched,
+        "messages": [AIMessage(content=summary)],
+        "trace": trace,
+    }
 
 
 def _summarize(entries: list[dict]) -> str:

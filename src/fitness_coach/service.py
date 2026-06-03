@@ -13,8 +13,10 @@ from typing import Any, AsyncIterator, Optional
 from langchain_core.messages import AIMessage, HumanMessage
 
 from . import exercises
-from .config import get_settings
+from .config import configure_observability, get_settings
 from .hub import get_app
+
+configure_observability()
 
 
 def run_turn(message: str, thread_id: str, threshold: Optional[float] = None) -> dict:
@@ -22,7 +24,7 @@ def run_turn(message: str, thread_id: str, threshold: Optional[float] = None) ->
     app = get_app()
     state = app.invoke(
         {"messages": [HumanMessage(content=message)]},
-        config=_graph_config(thread_id, effective_threshold),
+        config=_graph_config(thread_id, effective_threshold, message),
     )
     return _shape_response(state, thread_id, effective_threshold)
 
@@ -32,7 +34,7 @@ async def stream_turn(message: str, thread_id: str, threshold: Optional[float] =
     app = get_app()
     async for chunk in app.astream(
         {"messages": [HumanMessage(content=message)]},
-        config=_graph_config(thread_id, effective_threshold),
+        config=_graph_config(thread_id, effective_threshold, message),
         stream_mode="updates",
     ):
         for node_name, update in chunk.items():
@@ -47,7 +49,7 @@ def session_logs(thread_id: str) -> list[dict]:
     snapshot = app.get_state(_graph_config(thread_id, _resolve_threshold(None)))
     if not snapshot or not snapshot.values:
         return []
-    return [_shape_log_entry(e) for e in (snapshot.values.get("log_entries") or [])]
+    return [_shape_log_entry(e) for e in (snapshot.values.get("log_history") or [])]
 
 
 def _resolve_threshold(client_threshold: Optional[float]) -> float:
@@ -56,12 +58,19 @@ def _resolve_threshold(client_threshold: Optional[float]) -> float:
     return get_settings().confidence_threshold
 
 
-def _graph_config(thread_id: str, threshold: float) -> dict:
+def _graph_config(thread_id: str, threshold: float, message: str = "") -> dict:
+    preview = message.strip()[:80] if message else ""
     return {
         "configurable": {
             "thread_id": thread_id,
             "confidence_threshold": threshold,
-        }
+        },
+        "run_name": f"fitness-coach-{thread_id}",
+        "metadata": {
+            "thread_id": thread_id,
+            "confidence_threshold": threshold,
+            "message_preview": preview,
+        },
     }
 
 
@@ -136,6 +145,7 @@ def _workout_content(workout: dict, trace: list[dict]) -> dict:
             "focus": _workout_focus(workout) or "—",
         },
         "sections": sections,
+        "joints": _workout_joints(workout),
     }
     recovered = _recovered_message(trace)
     if recovered:
@@ -154,12 +164,17 @@ def _shape_workout_section(section: dict) -> dict:
 
 
 def _shape_workout_item(item: dict) -> dict:
-    return {
+    shaped = {
         "id": item.get("exercise_id"),
         "sets": item.get("sets"),
         "reps": _format_reps(item.get("reps"), item.get("duration_seconds")),
         "rest": _format_rest(item.get("rest_seconds")),
     }
+    if item.get("side_label"):
+        shaped["side_label"] = item["side_label"]
+    if item.get("paired"):
+        shaped["paired"] = True
+    return shaped
 
 
 def _format_reps(reps: Optional[int], duration_seconds: Optional[int]) -> str:
@@ -197,6 +212,16 @@ def _workout_focus(workout: dict) -> str:
                 if m and m not in muscles:
                     muscles.append(m)
     return " · ".join(muscles)
+
+
+def _workout_joints(workout: dict) -> list[str]:
+    ids: list[str] = []
+    for sec in workout.get("sections", []):
+        for it in sec.get("items", []):
+            eid = it.get("exercise_id")
+            if eid:
+                ids.append(eid)
+    return sorted(exercises.joints_for_exercise_ids(ids))
 
 
 def _recovered_message(trace: list[dict]) -> str:

@@ -73,9 +73,13 @@ confidence, and tool calls for every turn.
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt        # add -dev for tests
-cp .env.example .env                    # add your OPENROUTER_API_KEY
+cp .env.example .env                    # add OPENROUTER_API_KEY + optional LANGSMITH_API_KEY
 uvicorn app:app --reload                # open http://localhost:8000
 ```
+
+**Demo transcript:** [documents/DEMO_TRANSCRIPT.md](documents/DEMO_TRANSCRIPT.md)
+
+**Live demo:** https://fitness-coach-production-742e.up.railway.app
 
 ### API
 
@@ -113,7 +117,47 @@ of the system):
 
 These are deterministic (no live LLM calls) so they're cheap and CI-safe.
 
-## How I would evaluate this system in production
+Additional tests cover stretch-goal behavior: injury avoidance (`test_injury.py`),
+bilateral pairing (`test_bilateral.py`), and session log history (`test_session_log.py`).
+
+## Stretch goals (implemented)
+
+| Goal | Implementation |
+|------|----------------|
+| Streaming | `POST /api/chat/stream` (SSE); console uses `FitEngine.routeStream` with incremental node updates |
+| Multi-turn memory | `MemorySaver` + `thread_id`; `log_history` reducer accumulates logged sets across turns |
+| Injury avoidance | `avoid_joints` on `search_exercises` / `build_workout`; joint chips on workout cards |
+| Bilateral pairing | `expand_bilateral()` auto-adds mirror side for unilateral exercises in `build_workout` |
+| Observability | LangSmith tracing via `LANGCHAIN_TRACING_V2` + `LANGSMITH_API_KEY` — see below |
+
+## Observability (LangSmith)
+
+When `LANGSMITH_API_KEY` is set, every hub run, LLM call, and tool invocation is
+traced automatically to [LangSmith](https://smith.langchain.com) under project
+`fitness-coach`. Each turn includes `thread_id` and `message_preview` metadata
+for filtering.
+
+```bash
+# .env
+LANGCHAIN_TRACING_V2=true
+LANGSMITH_API_KEY=lsv2_pt_...
+LANGCHAIN_PROJECT=fitness-coach
+```
+
+Inspect: router structured-output span → sub-agent subgraph → `search_exercises` /
+`build_workout` tool calls. Recovery events (empty search, invalid id, joint
+conflict) appear as failed or retried tool results in the trace tree.
+
+## Repositories
+
+This project pushes to **both** remotes:
+
+```bash
+git push gitlab main    # Gauntlet GitLab
+git push github main    # public GitHub (bitrifttech/fitness-coach)
+```
+
+GitHub: https://github.com/bitrifttech/fitness-coach
 
 **Routing quality is the top metric.** I'd maintain a labeled set of real user
 messages (including the ambiguous ones) and track **routing accuracy** and a
@@ -147,12 +191,10 @@ next message, indicating the checkpointed context isn't being used well.
 **How I'd know it's working.** A healthy system shows high routing accuracy with
 a low, stable clarify rate; near-zero hallucinated ids; fuzzy-match scores
 clustered high; and recoveries that correlate with genuinely out-of-scope
-requests rather than valid ones we mishandle. I'd wire the existing structured
-trace into a real tracer (Langfuse or OpenTelemetry) so each turn is one span
-tree — router decision → sub-agent → tool calls — sampled for human review, with
-automated LLM-as-judge scoring of a daily slice for coaching accuracy and
-workout safety (e.g. flagging joint-overloading combinations using
-`joints_loaded`).
+requests rather than valid ones we mishandle. LangSmith tracing (see Observability
+above) provides span trees for router → sub-agent → tool calls; sample runs for
+human review and LLM-as-judge scoring of coaching accuracy and workout safety
+(e.g. flagging joint-overloading combinations using `joints_loaded`).
 
 ## Project layout
 
@@ -164,5 +206,6 @@ src/fitness_coach/
   config.py  llm.py  state.py  exercises.py  tools.py  router.py
   hub.py  service.py
   agents/    coach.py  generator.py  logger.py
-tests/       test_routing.py  test_resilience.py
+tests/       test_routing.py  test_resilience.py  test_injury.py  test_bilateral.py
+documents/   DEMO_TRANSCRIPT.md  ASSESSMENT.md
 ```
